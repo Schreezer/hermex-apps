@@ -25,7 +25,7 @@ Security sections per release.
 - Bot Mode: answer requests to connect an app, and view host status on the
   Hermes connection screen. Working bots and bots waiting for an answer sort
   first in the inbox; chat titles also show waiting and failed states.
-- A notification prompt after the first completed run, and a Send Test
+- A notification prompt after the first run starts, and a Send Test
   Notification button in Settings for push-paired servers.
 
 ### Changed
