@@ -251,6 +251,22 @@
     [self.view.window.windowScene _registerSettingsDiffActionArray:@[self] forKey:self.sceneID];
 }
 
+- (void)applyHostSettings:(UIMutableApplicationSceneSettings *)baseSettings transitionContext:(id)context {
+    UIMutableApplicationSceneSettings *newSettings = [self.presenter.scene.settings mutableCopy];
+    if(!newSettings) return;
+    newSettings.userInterfaceStyle = baseSettings.userInterfaceStyle;
+    newSettings.interfaceOrientation = baseSettings.interfaceOrientation;
+    newSettings.deviceOrientation = baseSettings.deviceOrientation;
+    newSettings.foreground = YES;
+    CGSize size = CGSizeMake(self.view.bounds.size.width / self.scaleRatio, self.view.bounds.size.height / self.scaleRatio);
+    if(UIInterfaceOrientationIsLandscape(baseSettings.interfaceOrientation)) {
+        newSettings.frame = CGRectMake(0, 0, size.height, size.width);
+    } else {
+        newSettings.frame = CGRectMake(0, 0, size.width, size.height);
+    }
+    [self.presenter.scene updateSettings:newSettings withTransitionContext:context completion:nil];
+}
+
 - (void)terminate {
     if(self.isAppRunning) {
         [self.extension _kill:SIGTERM];
@@ -275,7 +291,10 @@
         baseSettings.peripheryInsets = self.view.window.safeAreaInsets;
         [self.presenter.scene updateSettings:baseSettings withTransitionContext:newContext completion:nil];
     } else {
-        [self.delegate appSceneVC:self didUpdateFromSettings:baseSettings transitionContext:newContext];
+        // The delegate method is optional; a delegate without it still runs the app.
+        if([self.delegate respondsToSelector:@selector(appSceneVC:didUpdateFromSettings:transitionContext:)]) {
+            [self.delegate appSceneVC:self didUpdateFromSettings:baseSettings transitionContext:newContext];
+        }
     }
 }
 

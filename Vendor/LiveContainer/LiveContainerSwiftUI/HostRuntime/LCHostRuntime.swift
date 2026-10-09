@@ -221,6 +221,12 @@ private final class LCHostAppViewController: UIViewController, AppSceneViewContr
         DispatchQueue.main.async { self.onExit() }
     }
 
+    /// The host's scene changed (appearance, orientation, keyboard): pass it on
+    /// to the guest's scene at this view's size.
+    func appSceneVC(_ vc: AppSceneViewController!, didUpdateFrom settings: UIMutableApplicationSceneSettings!, transitionContext context: Any!) {
+        vc.applyHostSettings(settings, transitionContext: context)
+    }
+
     func appSceneVC(_ vc: AppSceneViewController!, didInitializeWithError error: (any Error)!) {
         guard let error else { return }
         DispatchQueue.main.async { self.onError(error) }

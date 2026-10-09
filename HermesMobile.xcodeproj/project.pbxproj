@@ -650,6 +650,11 @@
 		E7A1C0DE0000000000000403 /* HermexAppKit in Frameworks */ = {isa = PBXBuildFile; productRef = E7A1C0DE0000000000000402 /* HermexAppKit */; };
 		E7A1C0DE0000000000000412 /* GuestBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000411 /* GuestBridge.swift */; };
 		E7A1C0DE0000000000000422 /* GuestBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000421 /* GuestBridgeTests.swift */; };
+		E7A1C0DE0000000000000502 /* AgentButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000501 /* AgentButton.swift */; };
+		E7A1C0DE0000000000000512 /* InAppChatContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000511 /* InAppChatContext.swift */; };
+		E7A1C0DE0000000000000514 /* InAppChatModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000513 /* InAppChatModel.swift */; };
+		E7A1C0DE0000000000000516 /* InAppChatSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000515 /* InAppChatSheet.swift */; };
+		E7A1C0DE0000000000000522 /* InAppAgentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000521 /* InAppAgentTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1446,6 +1451,11 @@
 		E7A1C0DE0000000000000301 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000411 /* GuestBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/GuestBridge.swift; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000421 /* GuestBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestBridgeTests.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000501 /* AgentButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/AgentButton.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000511 /* InAppChatContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/InAppChatContext.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000513 /* InAppChatModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/InAppChatModel.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000515 /* InAppChatSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/InAppChatSheet.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000521 /* InAppAgentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InAppAgentTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1561,6 +1571,7 @@
 		1A2B3C4D5E6F700000000034 /* HermesMobileTests */ = {
 			isa = PBXGroup;
 			children = (
+				E7A1C0DE0000000000000521 /* InAppAgentTests.swift */,
 				E7A1C0DE0000000000000421 /* GuestBridgeTests.swift */,
 				E7A1C0DE0000000000000201 /* AppLibraryTests.swift */,
 				B48200000000000000000007 /* BotProfileEditorTests.swift */,
@@ -1892,6 +1903,10 @@
 		1A2B3C4D5E6F7000000000C3 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				E7A1C0DE0000000000000515 /* InAppChatSheet.swift */,
+				E7A1C0DE0000000000000513 /* InAppChatModel.swift */,
+				E7A1C0DE0000000000000511 /* InAppChatContext.swift */,
+				E7A1C0DE0000000000000501 /* AgentButton.swift */,
 				E7A1C0DE0000000000000411 /* GuestBridge.swift */,
 				E7A1C0DE000000000000010E /* HermexHomeTabs.swift */,
 				E7A1C0DE000000000000010C /* AppDetailView.swift */,
@@ -2737,6 +2752,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7A1C0DE0000000000000516 /* InAppChatSheet.swift in Sources */,
+				E7A1C0DE0000000000000514 /* InAppChatModel.swift in Sources */,
+				E7A1C0DE0000000000000512 /* InAppChatContext.swift in Sources */,
+				E7A1C0DE0000000000000502 /* AgentButton.swift in Sources */,
 				E7A1C0DE0000000000000412 /* GuestBridge.swift in Sources */,
 				E7A1C0DE000000000000010F /* HermexHomeTabs.swift in Sources */,
 				E7A1C0DE000000000000010D /* AppDetailView.swift in Sources */,
@@ -3138,6 +3157,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7A1C0DE0000000000000522 /* InAppAgentTests.swift in Sources */,
 				E7A1C0DE0000000000000422 /* GuestBridgeTests.swift in Sources */,
 				E7A1C0DE0000000000000202 /* AppLibraryTests.swift in Sources */,
 				A4790000000000000000E006 /* PushRegistrationTests.swift in Sources */,

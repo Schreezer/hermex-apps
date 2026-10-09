@@ -55,6 +55,27 @@ how it is wired, what we changed in the vendored copy, and how to update it.
 - `GuestApps/LiftLog` is a sample guest (xcodegen); build it with
   `scripts/build-guest-ipa.sh GuestApps/LiftLog`.
 
+## Hermes inside a running app
+
+- `AgentButtonLayer` is the floating Hermes button (BUILD_SPEC §6.1): drag to
+  one of four spots per side edge, throw past an edge to tuck it into a tab,
+  tap the tab or swipe in from that edge to bring it back. Placement is saved
+  per app; the first tuck shows a hint with Undo; the ⋯ menu has "Show agent
+  button". VoiceOver gets move and tuck actions instead of dragging. Its edge
+  strip is not `Color.clear`: over the guest's UIKit view a clear view loses
+  hit-testing and the app gets the touch.
+- `InAppChatSheet` (screen 09) drives Hermex's own `ChatViewModel` on a new
+  webui session. `InAppChatModel` creates the session like New Chat does and
+  applies the last new chat's composer picks (model, reasoning, profile).
+- The first message carries the app context (BUILD_SPEC §3.4) as a block after
+  the user's text, marked by `InAppChatContext.marker`, because the chat API
+  has no hidden-context field. `MessageBubbleView` strips it for display, so
+  neither the sheet nor the full chat shows it.
+- When a run ends Hermex refreshes the app over the bridge, until Hermes can
+  call refresh itself. "Full chat" hands the session to the Chats tab.
+- `InAppChatSessions` records which app each session started in, for Home's
+  "in Lift Log" labels.
+
 ## Build settings that matter
 
 - `Config/LiveContainerHost.xcconfig` is included at the end of
@@ -88,6 +109,11 @@ Keep this list current; each one has to survive `git subtree pull`.
    `Config/LiveContainerHost.xcconfig`.
 5. `MultitaskSupport/AppSceneViewController.{h,m}`: an initializer that takes
    `launchInfo`, merged into what LiveProcess receives (the bridge endpoint).
+6. `MultitaskSupport/AppSceneViewController.{h,m}`: the optional
+   `appSceneVC:didUpdateFromSettings:transitionContext:` delegate call is
+   guarded with `respondsToSelector:` (upstream called it unconditionally and
+   crashed delegates without it), and `applyHostSettings:transitionContext:`
+   passes host scene changes (appearance, orientation, keyboard) to the guest.
 
 ## Updating LiveContainer
 

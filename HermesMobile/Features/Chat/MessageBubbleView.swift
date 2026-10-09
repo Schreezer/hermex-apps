@@ -617,7 +617,9 @@ struct MessageBubbleView: View {
     /// when the user has opted to hide it. Display-only: `message.content` and the
     /// sent payload are untouched.
     private var userBubbleText: String {
-        let content = message.content ?? ""
+        // A chat started inside an app carries its context block on the first
+        // message; Hermes reads it, the transcript never shows it.
+        let content = InAppChatContext.displayText(message.content ?? "")
         guard !textOnly, hidesAttachmentPaths else { return content }
         return MessageAttachment.contentWithoutAttachedFilesMarker(in: content)
     }

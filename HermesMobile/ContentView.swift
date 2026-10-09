@@ -101,7 +101,7 @@ struct ContentView: View {
         case .loggedOut(let server):
             OnboardingView(authManager: authManager, savedServer: server)
         case .loggedIn(let server):
-            HermexHomeTabs(chatsRequested: chatRouteIsPending) { draft in
+            HermexHomeTabs(server: server, chatsRequested: chatRouteIsPending) { draft in
                 pendingNewChatRequest = NewChatRequest(initialDraft: draft)
             } chats: {
                 SessionListView(

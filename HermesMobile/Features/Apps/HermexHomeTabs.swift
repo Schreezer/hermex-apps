@@ -7,6 +7,7 @@ struct HermexHomeTabs<Chats: View>: View {
         case apps
     }
 
+    let server: URL
     /// True while a deep link, share, intent or push is routing to a chat;
     /// the home switches to Chats so the route lands where the user can see it.
     let chatsRequested: Bool
@@ -23,7 +24,7 @@ struct HermexHomeTabs<Chats: View>: View {
                 chats
             }
             Tab("Apps", systemImage: "square.grid.2x2", value: HomeTab.apps) {
-                AppsView(library: library) { draft in
+                AppsView(library: library, server: server) { draft in
                     tab = .chats
                     askHermes(draft)
                 }

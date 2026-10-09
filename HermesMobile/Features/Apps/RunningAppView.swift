@@ -14,11 +14,24 @@ struct RunningAppView: View {
     @State private var errorMessage: String?
     /// The app's HermexAppKit connection; one per screen, reused across restarts.
     @State private var bridge = GuestBridge()
+    @State private var buttonPlacement: AgentButtonPlacement
+    @State private var isShowingChat = false
+    /// The app's thread with Hermes; kept while the app is open.
+    @State private var chatModel: InAppChatModel
     #if DEBUG
     @State private var isShowingBridgeInspector = false
     #endif
 
     private typealias Theme = HermexAppsTheme
+
+    init(entry: HermexAppEntry, hostApp: LCHostApp, server: URL, showDetails: @escaping () -> Void, close: @escaping () -> Void) {
+        self.entry = entry
+        self.hostApp = hostApp
+        self.showDetails = showDetails
+        self.close = close
+        _buttonPlacement = State(initialValue: AgentButtonPlacement.load(appID: entry.app.id))
+        _chatModel = State(initialValue: InAppChatModel(server: server, app: entry.app))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,6 +56,11 @@ struct RunningAppView: View {
                     Menu {
                         Button(action: showDetails) { Label("App details", systemImage: "info.circle") }
                         Button { launch = UUID() } label: { Label("Restart app", systemImage: "arrow.clockwise") }
+                        if buttonPlacement.isTucked {
+                            Button { buttonPlacement.isTucked = false } label: {
+                                Label("Show agent button", systemImage: "rectangle.portrait.and.arrow.forward")
+                            }
+                        }
                         #if DEBUG
                         Button { isShowingBridgeInspector = true } label: {
                             Label { Text(verbatim: "Bridge inspector") } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") }
@@ -67,12 +85,35 @@ struct RunningAppView: View {
             }
             .id(launch)
             .clipShape(UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22))
+            .overlay {
+                AgentButtonLayer(appName: entry.app.name, placement: $buttonPlacement) {
+                    isShowingChat = true
+                }
+            }
             .ignoresSafeArea(edges: .bottom)
         }
         .background(Theme.background.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
         .statusBarHidden(false)
-        .onDisappear { bridge.invalidate() }
+        .onDisappear {
+            chatModel.suspend()
+            bridge.invalidate()
+        }
+        .onChange(of: buttonPlacement) { buttonPlacement.save(appID: entry.app.id) }
+        // The agent may have changed the app's data during the run. Until Hermes
+        // can call refresh itself (build step 6), Hermex refreshes when a run ends.
+        .onChange(of: chatModel.chat?.runEndTrigger) {
+            Task { await bridge.refresh() }
+        }
+        .sheet(isPresented: $isShowingChat) {
+            InAppChatSheet(model: chatModel, bridge: bridge, openFullChat: openFullChat) {
+                isShowingChat = false
+            }
+            .presentationDetents([.height(520), .large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(26)
+            .presentationBackground(Color(hex: 0x111315))
+        }
         #if DEBUG
         .sheet(isPresented: $isShowingBridgeInspector) {
             BridgeInspector(bridge: bridge)
@@ -87,6 +128,16 @@ struct RunningAppView: View {
         } message: {
             Text(verbatim: errorMessage ?? "")
         }
+    }
+}
+
+extension RunningAppView {
+    /// Hands the in-app thread to the Chats tab and closes the app.
+    fileprivate func openFullChat(_ sessionID: String) {
+        chatModel.suspend()
+        isShowingChat = false
+        AppIntentRouter.shared.requestDeepLink(HermesDeepLink.sessionURL(sessionID: sessionID))
+        close()
     }
 }
 

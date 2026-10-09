@@ -41,5 +41,7 @@ API_AVAILABLE(ios(16.0))
 - (void)terminate;
 - (void)openURLScheme:(NSString *)urlString;
 - (void)handleStatusBarTapAction:(UIAction *)action;
+/// Applies a host scene change (appearance, orientation) to the guest scene at this view's size.
+- (void)applyHostSettings:(UIMutableApplicationSceneSettings *)settings transitionContext:(id)context;
 @end
 

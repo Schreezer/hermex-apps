@@ -3,6 +3,7 @@ import SwiftUI
 /// Screen 05: the apps Hermes built for this user.
 struct AppsView: View {
     let library: AppLibrary
+    let server: URL
     /// Starts a chat with Hermes from this draft.
     let askHermes: (String) -> Void
 
@@ -66,6 +67,7 @@ struct AppsView: View {
                 RunningAppView(
                     entry: entry,
                     hostApp: hostApp,
+                    server: server,
                     showDetails: {
                         running = nil
                         path = [entry.id]
