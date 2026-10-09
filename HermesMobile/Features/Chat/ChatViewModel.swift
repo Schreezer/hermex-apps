@@ -4422,9 +4422,10 @@ final class ChatViewModel {
     /// one has to take the chips with it — including the ones accepted from the
     /// panel, which were never checked against anything else. The revision bump
     /// is what asks the chat for a fresh pass, so a file that exists under the
-    /// new root as well comes straight back.
-    private func resetFileChipReferences() {
-        filePathSearch.reset()
+    /// new root as well comes straight back. `reloadingOpenQuery` also reloads an
+    /// open `@` panel (`ComposerFilePathSearch.reset(reloadingOpenQuery:)`).
+    private func resetFileChipReferences(reloadingOpenQuery: Bool = false) {
+        filePathSearch.reset(reloadingOpenQuery: reloadingOpenQuery)
         checkedFileChipCandidates.removeAll()
         // Cancelling, not just forgetting: a pass left running would keep
         // listing the old root's folders, and every folder it had already
@@ -7769,7 +7770,8 @@ extension ChatViewModel: HermesChatTurnDelegate {
     }
 
     func hermesWorkspaceDidChange() {
-        resetFileChipReferences()
+        // `session.info` reports a move the host already applied, so an open `@` panel asks again.
+        resetFileChipReferences(reloadingOpenQuery: true)
     }
 }
 

@@ -54,7 +54,7 @@ struct FilePathAutocompleteView: View {
         }
     }
 
-    /// What one load answers: the query, in the workspace the search was last reset to.
+    /// What one load answers: the query, in the folder a reloading reset last moved the search to.
     private struct LoadKey: Equatable {
         let query: String
         let scope: Int

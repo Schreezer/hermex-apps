@@ -132,7 +132,10 @@ enum HermesCall: Equatable, Sendable {
     // Composer panels
     case commandsCatalog(sessionID: String)
     case commandDispatch(name: String, argument: String, sessionID: String)
-    case completePath(word: String, sessionID: String, profile: String)
+    /// `timesOutLocally`: the Hermes chat's `@` lookups (#1113) fail only themselves when the
+    /// host never answers. Bot Chat's keep the required-call policy, ending its screen's
+    /// connection.
+    case completePath(word: String, sessionID: String, profile: String, timesOutLocally: Bool = false)
     /// `complete.path` for a host folder outside any session (#1052): `word` is a path from the
     /// host's root or home (`HermesFolderCompletion.completes`), so no session's folder resolves it.
     case completeFolder(word: String, profile: String)
@@ -441,7 +444,7 @@ enum HermesCall: Equatable, Sendable {
             return ["session_id": .string(sessionID), "profile": .string(profile), "action": .string(action)]
         case .commandDispatch(let name, let argument, let sessionID):
             return ["name": .string(name), "arg": .string(argument), "session_id": .string(sessionID)]
-        case .completePath(let word, let sessionID, let profile):
+        case .completePath(let word, let sessionID, let profile, _):
             return ["word": .string(word), "session_id": .string(sessionID), "profile": .string(profile)]
         case .completeFolder(let word, let profile): return ["word": .string(word), "profile": .string(profile)]
         case .completeSlash(let text, let sessionID): return ["text": .string(text), "session_id": .string(sessionID)]
@@ -539,7 +542,7 @@ enum HermesCall: Equatable, Sendable {
                 && text.contains(" ")
         case .slashExec(let sessionID, let command):
             valid = !sessionID.isEmpty && Self.isSlashLine(command) && command.dropFirst().first?.isWhitespace == false
-        case .completePath(let word, let sessionID, let profile):
+        case .completePath(let word, let sessionID, let profile, _):
             valid = !word.isEmpty && !word.contains(where: \.isWhitespace) && !sessionID.isEmpty && !profile.isEmpty
         case .subagentTail(let sessionID, let subagentID), .subagentInterrupt(let sessionID, let subagentID):
             valid = !sessionID.isEmpty && !subagentID.isEmpty

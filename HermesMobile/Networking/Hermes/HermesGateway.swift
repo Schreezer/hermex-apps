@@ -457,12 +457,14 @@ private extension HermesCall {
     }
 
     /// Optional reads, and slash commands, whose timeout fails only that request: a slow
-    /// command must never end its chat's connection, nor a slow `@` lookup (#1113). Any other
-    /// call that times out ends its screen's connection; the socket stays for the others.
+    /// command must never end its chat's connection, nor a Hermes chat's slow `@` lookup
+    /// (#1113). Any other call that times out ends its screen's connection; the socket stays
+    /// for the others.
     var timesOutLocally: Bool {
         switch self {
         case .subagentList, .subagentTail, .sessionActiveList, .sessionMostRecent, .completeSlash, .slashExec,
-             .profileModelOptions, .projectsTree, .completePath, .completeFolder: return true
+             .profileModelOptions, .projectsTree, .completeFolder: return true
+        case .completePath(_, _, _, let timesOutLocally): return timesOutLocally
         default: return false
         }
     }

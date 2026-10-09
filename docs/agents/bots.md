@@ -1494,9 +1494,10 @@ panel (#1113) and Git (#1114) read the same context.
   session's `cwd` and ranks and caps its own rows (30). An `@path` in the draft or transcript
   becomes a chip when `complete.path` for that path lists it, so a big folder still confirms
   it. Same `local` gate as Files. A `cwd` or backend change drops the chips and the pass in
-  flight, and the chat checks again in the new folder; an open panel asks again there. A
-  `complete.path` with no reply fails only that lookup, here and in Bot Chat, never the
-  chat's connection.
+  flight, and the chat checks again in the new folder; an open panel asks again there (a
+  webui switch does not reload it: that switch is optimistic). A `complete.path` with no
+  reply fails only that lookup, never the chat's connection; Bot Chat's still ends its
+  connection, as before.
 
 ## Memory on a Hermes host
 
