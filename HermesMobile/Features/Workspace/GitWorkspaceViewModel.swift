@@ -1,15 +1,15 @@
 import Foundation
 
-/// Loads read-only git status for a chat session's workspace (issue #312, Slice A).
+/// Loads read-only git status for a chat's repository (issue #312, Slice A; Hermes #1114).
 ///
-/// State is per session: each view model owns one `SessionSummary` and only ever sends that
-/// session's `session_id` to the server, which resolves the workspace path (same rule as
-/// `FileBrowserViewModel`). Two sessions on the same folder therefore see the same git state;
-/// different folders see independent state.
+/// State is per repository client: a webui session's (`WebUIGitClient`, which only ever sends
+/// that session's `session_id`, so the server resolves the workspace path) or a Hermes chat's
+/// folder (`HermesGitClient`). Two sessions on the same folder therefore see the same git
+/// state; different folders see independent state.
 @Observable
 final class GitWorkspaceViewModel {
-    private let session: SessionSummary
-    private let apiClient: APIClient
+    /// Nil for a webui session without an ID.
+    private let git: (any GitDataClient)?
 
     private(set) var status: GitStatus?
     private(set) var isLoading = false
@@ -17,9 +17,12 @@ final class GitWorkspaceViewModel {
     private(set) var lastError: Error?
     private var hasLoaded = false
 
-    init(session: SessionSummary, server: URL, apiClient: APIClient? = nil) {
-        self.session = session
-        self.apiClient = apiClient ?? APIClient(baseURL: server)
+    init(git: (any GitDataClient)?) {
+        self.git = git
+    }
+
+    convenience init(session: SessionSummary, server: URL, apiClient: APIClient? = nil) {
+        self.init(git: WebUIGitClient(session: session, apiClient: apiClient ?? APIClient(baseURL: server)))
     }
 
     /// True once a status has loaded and the workspace is not a git repository
@@ -41,7 +44,7 @@ final class GitWorkspaceViewModel {
 
     @MainActor
     func load() async {
-        guard let sessionID = session.sessionId else {
+        guard let git else {
             errorMessage = String(localized: "Session ID is missing.")
             return
         }
@@ -51,8 +54,7 @@ final class GitWorkspaceViewModel {
         lastError = nil
 
         do {
-            let response = try await apiClient.gitStatus(sessionID: sessionID)
-            status = response.git
+            status = try await git.status()
             hasLoaded = true
         } catch {
             lastError = error
@@ -63,12 +65,17 @@ final class GitWorkspaceViewModel {
     }
 }
 
-/// Lightweight toolbar probe for whether a chat session's workspace is a git repository.
+/// Lightweight toolbar probe for whether a chat's workspace is a git repository.
 /// The toolbar stays hidden unless the server confirms `is_git == true`.
+///
+/// Reads go through `git`; writes (branches, commit, fetch, pull, push) go to webui's session
+/// routes and need `session`'s ID, so a Hermes chat, which has none, has no writes (#1114).
 @Observable
 final class GitWorkspaceAvailabilityViewModel {
     private let session: SessionSummary
     private let apiClient: APIClient
+    /// What the menu, Changes sheet and diffs read; nil when the chat has no repository to read.
+    let git: (any GitDataClient)?
 
     private(set) var hasRepository = false
     private(set) var isLoading = false
@@ -87,10 +94,20 @@ final class GitWorkspaceAvailabilityViewModel {
     private(set) var lastActionMessage: String?
     private var hasLoaded = false
 
-    init(session: SessionSummary, server: URL, apiClient: APIClient? = nil) {
+    init(session: SessionSummary, server: URL, git: (any GitDataClient)?, apiClient: APIClient? = nil) {
         self.session = session
         self.apiClient = apiClient ?? APIClient(baseURL: server)
+        self.git = git
     }
+
+    /// A webui session's repository, read and written through its session routes.
+    convenience init(session: SessionSummary, server: URL, apiClient: APIClient? = nil) {
+        let client = apiClient ?? APIClient(baseURL: server)
+        self.init(session: session, server: server, git: WebUIGitClient(session: session, apiClient: client), apiClient: client)
+    }
+
+    /// False on a Hermes chat: every write route is webui's and takes its session ID.
+    var supportsWrites: Bool { session.sessionId != nil }
 
     @MainActor
     func loadIfNeeded() async {
@@ -100,7 +117,7 @@ final class GitWorkspaceAvailabilityViewModel {
 
     @MainActor
     func load() async {
-        guard let sessionID = session.sessionId else {
+        guard let git else {
             hasRepository = false
             lastError = nil
             return
@@ -109,15 +126,15 @@ final class GitWorkspaceAvailabilityViewModel {
         isLoading = true
 
         do {
-            let response = try await apiClient.gitInfo(sessionID: sessionID)
-            gitInfo = response.git
-            hasRepository = response.git?.isGit == true
+            let info = try await git.info()
+            gitInfo = info
+            hasRepository = info?.isGit == true
             lastError = nil
 
             if hasRepository {
                 isStatusLoading = true
                 do {
-                    status = try await apiClient.gitStatus(sessionID: sessionID).git
+                    status = try await git.status()
                     statusError = nil
                     hasLoaded = true
                 } catch {
@@ -323,8 +340,8 @@ final class GitWorkspaceAvailabilityViewModel {
     @MainActor
     func refreshAfterExternalMutation() async {
         await refreshGitInfo()
-        guard let sessionID = session.sessionId, hasRepository else { return }
-        if let refreshed = try? await apiClient.gitStatus(sessionID: sessionID).git {
+        guard let git, hasRepository else { return }
+        if let refreshed = try? await git.status() {
             status = refreshed
             statusError = nil
         }
@@ -342,10 +359,13 @@ final class GitWorkspaceAvailabilityViewModel {
 
     @MainActor
     private func refreshGitInfo() async {
-        guard let sessionID = session.sessionId else { return }
-        if let response = try? await apiClient.gitInfo(sessionID: sessionID) {
-            gitInfo = response.git
-            hasRepository = response.git?.isGit == true
+        guard let git else { return }
+        do {
+            let info = try await git.info()
+            gitInfo = info
+            hasRepository = info?.isGit == true
+        } catch {
+            // A failed refresh keeps the last answer: it is not a missing repository.
         }
     }
 
@@ -449,6 +469,9 @@ enum GitQuickCommitOutcome: Equatable {
 struct GitWriteAvailability: Equatable {
     let isStreaming: Bool
     let isViewingCachedData: Bool
+    /// A Hermes chat's repository is read-only (#1114): every write entry is hidden, not
+    /// disabled. Fetch, Pull and New branch included.
+    var hidesWrites = false
 
     var writesDisabled: Bool { isStreaming || isViewingCachedData }
     var fetchDisabled: Bool { isViewingCachedData }

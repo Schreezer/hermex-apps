@@ -1498,6 +1498,21 @@ panel (#1113) and Git (#1114) read the same context.
   webui switch does not reload it: that switch is optimistic). A `complete.path` with no
   reply fails only that lookup, never the chat's connection; Bot Chat's still ends its
   connection, as before.
+- **Git, read-only (#1114).** The Git menu, Changes sheet, diffs and turn-changes card read
+  through `HermesGitClient`, the `GitDataClient` beside webui's `WebUIGitClient`, mapped into
+  webui's Git models. Same `local` gate as Files; a folder outside a repository hides Git. It
+  shows the whole repository holding the `cwd`: `GET /api/fs/git-root?path=<cwd>` resolves the
+  root once per folder, and `git/status`, `git/review/list?scope=uncommitted` and
+  `git/review/diff` all take `path=<root>`, since their paths are root-relative. Rows are
+  `review/list`'s (uncapped, sorted) joined by path with `status.files`' flags, which the host
+  caps at 200; a row past the cap has no `unstaged` flag and takes untracked and conflicted from
+  its status letter, so the list is never marked truncated. A diff over 512 KiB shows webui's
+  too-large notice, and a `Binary files … differ` patch the binary one. A failed git call is 400
+  `{detail}`, git's stderr: it reads as "Repository status unavailable", and neither it nor the
+  root is shown or logged. Every write (Stage Changes, Commit, Push, Fetch, Pull, the branch
+  picker, the inline commit button) is hidden; the turn-end refresh and the Changes card work as
+  on webui. A `cwd` or backend change closes an open Git sheet and reads the new folder's
+  repository.
 
 ## Memory on a Hermes host
 

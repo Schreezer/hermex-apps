@@ -1,5 +1,43 @@
 import Foundation
 
+/// The repository reads one chat's Git menu, Changes sheet, diffs and turn-changes card go
+/// through (#1114): webui's session routes (`WebUIGitClient`) or a Hermes host's repository
+/// routes (`HermesGitClient`). Writes are webui-only and stay on `APIClient`. File paths are
+/// repository-relative, as `GitFile.path` carries them.
+protocol GitDataClient: Sendable {
+    /// The toolbar's badge data; nil, or `isGit == false`, outside a repository.
+    func info() async throws -> GitInfo?
+    /// Every changed file; `isGit == false` outside a repository.
+    func status() async throws -> GitStatus?
+    /// One changed file's diff, of the kind `GitFile.preferredDiffKind` names.
+    func diff(for file: GitFile) async throws -> GitDiff?
+}
+
+/// `GitDataClient` over webui's session-scoped Git routes.
+struct WebUIGitClient: GitDataClient {
+    let apiClient: APIClient
+    let sessionID: String
+
+    /// Nil without a session ID, which every route needs.
+    init?(session: SessionSummary, apiClient: APIClient) {
+        guard let sessionID = session.sessionId else { return nil }
+        self.apiClient = apiClient
+        self.sessionID = sessionID
+    }
+
+    func info() async throws -> GitInfo? {
+        try await apiClient.gitInfo(sessionID: sessionID).git
+    }
+
+    func status() async throws -> GitStatus? {
+        try await apiClient.gitStatus(sessionID: sessionID).git
+    }
+
+    func diff(for file: GitFile) async throws -> GitDiff? {
+        try await apiClient.gitDiff(sessionID: sessionID, path: file.displayPath, kind: file.preferredDiffKind).diff
+    }
+}
+
 // Workspace Git calls. Every call is scoped to a chat session via `session_id`; the
 // server resolves the workspace path itself, mirroring `APIClient+Workspace.swift`.
 extension APIClient {

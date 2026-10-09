@@ -4,6 +4,10 @@ import SwiftUI
 
 /// View-model behaviour + diff parsing for the workspace-git feature (issue #312, Slice A).
 final class GitWorkspaceViewModelTests: APIClientTestCase {
+    override func tearDown() {
+        HermesHostFixture.reset()
+        super.tearDown()
+    }
 
     private func session(id: String) throws -> SessionSummary {
         let decoder = JSONDecoder()
@@ -406,6 +410,137 @@ final class GitWorkspaceViewModelTests: APIClientTestCase {
         XCTAssertTrue(GitWriteAvailability(isStreaming: false, isViewingCachedData: true).writesDisabled)
         XCTAssertFalse(GitWriteAvailability(isStreaming: true, isViewingCachedData: false).fetchDisabled)
         XCTAssertTrue(GitWriteAvailability(isStreaming: false, isViewingCachedData: true).fetchDisabled)
+    }
+
+    // MARK: - Hermes repository (#1114)
+
+    /// Changes rows come from `review/list` (counts, status letter, staged) joined by path with
+    /// `status.files`' flags, which the host lists in its own order. The badge reads the branch,
+    /// ahead/behind and dirty count from the status, and a Hermes chat has no writes.
+    @MainActor
+    func testHermesChangesJoinReviewRowsWithStatusFlagsByPath() async throws {
+        let git = HermesGitHost.client { request in
+            HermesGitHost.repositoryReply(request, branch: "feature/x", ahead: 2, behind: 1, rows: [
+                ("README.md", 1, 1, "M", false), ("Sources/Both.swift", 4, 2, "M", true),
+                ("Sources/New.swift", 5, 0, "A", true), ("conflict.txt", 0, 0, "U", false), ("notes.txt", 3, 0, "?", false)
+            ], flags: [
+                ("notes.txt", false, true, true, false), ("conflict.txt", false, false, false, true),
+                ("Sources/New.swift", true, false, false, false), ("Sources/Both.swift", true, true, false, false),
+                ("README.md", false, true, false, false)
+            ])
+        }
+        let availability = GitWorkspaceAvailabilityViewModel(
+            session: SessionSummary(), server: URL(string: "https://webui.example")!, git: git
+        )
+        let changes = GitWorkspaceViewModel(git: git)
+
+        await availability.load()
+        await changes.load()
+
+        XCTAssertTrue(availability.hasRepository)
+        XCTAssertFalse(availability.supportsWrites)
+        XCTAssertEqual(availability.currentBranchName, "feature/x")
+        XCTAssertEqual(availability.gitInfo?.ahead, 2)
+        XCTAssertEqual(availability.gitInfo?.behind, 1)
+        XCTAssertEqual(availability.gitInfo?.dirty, 5)
+        XCTAssertNil(availability.branches)
+        XCTAssertEqual(GitToolbarPresentation(hasRepository: true, isLoading: false, info: availability.gitInfo,
+                                              status: availability.status, statusFailed: false).accessibilityValue,
+                       String(localized: "Local changes exist and remote branch moved ahead"))
+        let files = try XCTUnwrap(changes.status?.trackedFiles)
+        XCTAssertEqual(files.map(\.displayPath), ["README.md", "Sources/Both.swift", "Sources/New.swift", "conflict.txt", "notes.txt"])
+        XCTAssertEqual(files.map(\.changeKind), [.modified, .modified, .added, .conflict, .untracked])
+        XCTAssertEqual(files.map(\.preferredDiffKind), ["unstaged", "unstaged", "staged", "unstaged", "unstaged"])
+        XCTAssertEqual(files.map { $0.additions ?? -1 }, [1, 4, 5, 0, 3])
+        XCTAssertEqual(changes.status?.changedCount, 5)
+        XCTAssertEqual(changes.status?.branch, "feature/x")
+        XCTAssertEqual(HermesGitHost.requests.filter { $0.url?.path == "/api/git/branches" }.count, 0)
+    }
+
+    /// The host caps `status.files` at 200 but lists every change in `review/list`, so a 201st
+    /// change is still a row: it has no flags, its kind comes from its status letter, and it opens
+    /// its staged diff. The list is whole, so it isn't marked truncated.
+    @MainActor
+    func testHermesRowsPastTheStatusCapStayListed() async throws {
+        let paths = (0...200).map { String(format: "f%03d.txt", $0) }
+        let git = HermesGitHost.client { request in
+            HermesGitHost.repositoryReply(request,
+                                          rows: paths.map { ($0, 1, 0, $0 == "f200.txt" ? "A" : "M", $0 == "f200.txt") },
+                                          flags: paths.map { ($0, $0 == "f200.txt", $0 != "f200.txt", false, false) })
+        }
+        let changes = GitWorkspaceViewModel(git: git)
+
+        await changes.load()
+
+        let status = try XCTUnwrap(changes.status)
+        XCTAssertEqual(status.trackedFiles.count, 201)
+        XCTAssertEqual(status.changedCount, 201)
+        XCTAssertEqual(status.truncated, false)
+        let last = try XCTUnwrap(status.trackedFiles.last)
+        XCTAssertEqual(last.displayPath, "f200.txt")
+        XCTAssertNil(last.unstaged)
+        XCTAssertEqual(last.changeKind, .added)
+        XCTAssertEqual(last.preferredDiffKind, "staged")
+        XCTAssertEqual(status.trackedFiles.first?.unstaged, true)
+    }
+
+    /// A folder outside a repository hides Git without asking for its status, and the Changes
+    /// sheet shows its non-repository state. A repository the agent then creates shows at turn end.
+    @MainActor
+    func testAHermesFolderOutsideARepositoryHidesGitUntilOneAppears() async throws {
+        var root: String?
+        let git = HermesGitHost.client { request in
+            HermesGitHost.repositoryReply(request, root: root, rows: [("a.txt", 1, 0, "?", false)],
+                                          flags: [("a.txt", false, true, true, false)])
+        }
+        let availability = GitWorkspaceAvailabilityViewModel(
+            session: SessionSummary(), server: URL(string: "https://webui.example")!, git: git
+        )
+        let changes = GitWorkspaceViewModel(git: git)
+
+        await availability.load()
+        await changes.load()
+
+        XCTAssertFalse(availability.hasRepository)
+        XCTAssertTrue(changes.isNonRepository)
+        XCTAssertEqual(HermesGitHost.requests.filter { $0.url?.path.hasPrefix("/api/git/") == true }.count, 0)
+
+        HermesHostFixture.script { root = HermesGitHost.repository }
+        await availability.refreshAfterExternalMutation()
+
+        XCTAssertTrue(availability.hasRepository)
+        XCTAssertEqual(availability.status?.trackedFiles.map(\.displayPath), ["a.txt"])
+    }
+
+    /// Each folder's client resolves its own root, once: a refresh reuses it, and a chat moved to
+    /// another folder (which gets a new client) asks again and reads the new repository.
+    @MainActor
+    func testEachHermesFolderResolvesItsOwnRootOnce() async throws {
+        let other = "/Users/agent/projects/other"
+        let script: (URLRequest) -> HermesHostFixture.Reply? = { request in
+            let path = HermesGitHost.query(request, "path") ?? ""
+            let inOther = path.hasPrefix(other)
+            return HermesGitHost.repositoryReply(request, root: inOther ? other : HermesGitHost.repository,
+                                                 branch: inOther ? "other-main" : "main")
+        }
+        let first = GitWorkspaceAvailabilityViewModel(
+            session: SessionSummary(), server: URL(string: "https://webui.example")!,
+            git: HermesGitHost.client(cwd: HermesGitHost.repository + "/Sources", script)
+        )
+        await first.load()
+        await first.refreshAfterExternalMutation()
+        let moved = GitWorkspaceAvailabilityViewModel(
+            session: SessionSummary(), server: URL(string: "https://webui.example")!,
+            git: HermesGitHost.client(cwd: other, script)
+        )
+        await moved.load()
+
+        let roots = HermesGitHost.requests.filter { $0.url?.path == "/api/fs/git-root" }
+        XCTAssertEqual(roots.map { HermesGitHost.query($0, "path") }, [HermesGitHost.repository + "/Sources", other])
+        let statusPaths = Set(HermesGitHost.requests.filter { $0.url?.path == "/api/git/status" }.map { HermesGitHost.query($0, "path") })
+        XCTAssertEqual(statusPaths, [HermesGitHost.repository, other])
+        XCTAssertEqual(first.currentBranchName, "main")
+        XCTAssertEqual(moved.currentBranchName, "other-main")
     }
 
     // MARK: - Diff parsing

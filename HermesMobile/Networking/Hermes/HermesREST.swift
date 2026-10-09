@@ -166,6 +166,17 @@ enum HermesREST: Equatable, Sendable {
     /// `{text, binary, truncated, byteSize, …}` for the file at a host path, its first 512 KiB
     /// (`truncated` past that); 404 `{detail}` when there is none.
     case fsReadText(path: String)
+    /// `{root}`: the repository folder holding a host path, or null outside one (#1114).
+    case gitRoot(path: String)
+    /// `null` outside a repository, else `{branch, detached, ahead, behind, staged, unstaged,
+    /// untracked, conflicted, changed, added, removed, files: [{path, staged, unstaged, untracked,
+    /// conflicted}]}`, with `files` capped at 200 and `changed` the full count. `repository` is
+    /// the root, since every path is relative to it.
+    case gitStatus(repository: String)
+    /// `{files: [{path, added, removed, status, staged}], base}`: every uncommitted change, sorted.
+    case gitChanges(repository: String)
+    /// `{diff}`: one file's staged or worktree diff, an all-add one for an untracked file.
+    case gitDiff(repository: String, file: String, staged: Bool)
     /// Replaces or creates the file at a host path, atomically; `{ok, path, byteSize}`. It never
     /// creates folders: a missing parent is 400 "Parent directory does not exist".
     case fsWriteText(path: String, content: String)
@@ -403,6 +414,18 @@ enum HermesREST: Equatable, Sendable {
             parts.percentEncodedQuery = parts.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
             guard let url = parts.url else { throw BotFailure.invalidAddress }
             return Self.get(url)
+        case .gitRoot(let path):
+            return try Self.pathQuery(base, "api/fs/git-root", [URLQueryItem(name: "path", value: path)])
+        case .gitStatus(let repository):
+            return try Self.pathQuery(base, "api/git/status", [URLQueryItem(name: "path", value: repository)])
+        case .gitChanges(let repository):
+            return try Self.pathQuery(base, "api/git/review/list", [URLQueryItem(name: "path", value: repository),
+                                                                    URLQueryItem(name: "scope", value: "uncommitted")])
+        case .gitDiff(let repository, let file, let staged):
+            return try Self.pathQuery(base, "api/git/review/diff", [
+                URLQueryItem(name: "path", value: repository), URLQueryItem(name: "file", value: file),
+                URLQueryItem(name: "scope", value: "uncommitted"), URLQueryItem(name: "staged", value: staged ? "true" : "false")
+            ])
         case .fsWriteText(let path, let content):
             return try Self.send("POST", base.appendingPathComponent("api/fs/write-text"),
                                  ["path": .string(path), "content": .string(content)])
@@ -530,6 +553,17 @@ enum HermesREST: Equatable, Sendable {
     }
 
     private static func get(_ url: URL) -> URLRequest { bare("GET", url) }
+
+    /// A GET of `route` whose query names host paths, each `+` kept as itself: the host reads a
+    /// query's `+` as a space.
+    private static func pathQuery(_ base: URL, _ route: String, _ items: [URLQueryItem]) throws -> URLRequest {
+        guard var parts = URLComponents(url: base.appendingPathComponent(route), resolvingAgainstBaseURL: false)
+        else { throw BotFailure.invalidAddress }
+        parts.queryItems = items
+        parts.percentEncodedQuery = parts.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        guard let url = parts.url else { throw BotFailure.invalidAddress }
+        return get(url)
+    }
 
     /// A request without a body.
     private static func bare(_ method: String, _ url: URL) -> URLRequest {

@@ -1623,6 +1623,10 @@ final class ChatViewModel {
     /// The files of `hermesWorkspace`, on the session's connection.
     var hermesWorkspaceFiles: HermesWorkspaceFileClient? { hermesTurn?.workspaceFiles }
 
+    /// The repository holding `hermesWorkspace` (#1114), on the session's connection. Each read is a
+    /// new client, which resolves its root once, so keep one per folder.
+    var hermesWorkspaceGit: HermesGitClient? { hermesTurn?.workspaceGit }
+
     func attachmentRawData(path: String) async -> Data? {
         await attachmentCoordinator.attachmentRawData(path: path)
     }

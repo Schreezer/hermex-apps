@@ -436,6 +436,13 @@ struct HermesChatTranscript: Equatable {
         return HermesWorkspaceFileClient(context: workspace, http: http)
     }
 
+    /// The repository holding `workspace` (#1114), on this chat's connection. Git reads it only on a
+    /// local backend, as Files does.
+    var workspaceGit: HermesGitClient? {
+        guard let workspace, let http = (engine.wire as? BotClient)?.http else { return nil }
+        return HermesGitClient(context: workspace, http: http)
+    }
+
     /// One query's rows for the composer's `@` panel and its `@path` check (#1113), as Bot Chat
     /// asks them: `complete.path` on the attached runtime, which completes against the
     /// session's working folder and ranks and caps its own rows. Throws `.stale` while

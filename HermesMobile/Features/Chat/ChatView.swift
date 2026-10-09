@@ -804,8 +804,8 @@ struct ChatView: View {
         return sessionID
     }
 
-    /// A Hermes chat's folder while Files can read it: `session.info` has named it, on a
-    /// `local` terminal backend (#1112). Nil on any other backend, and before.
+    /// A Hermes chat's folder while Files and Git can read it: `session.info` has named it, on a
+    /// `local` terminal backend (#1112, #1114). Nil on any other backend, and before.
     private var browsableHermesWorkspace: HermesWorkspaceContext? {
         viewModel.hermesWorkspace.flatMap { $0.isLocal ? $0 : nil }
     }
@@ -1058,7 +1058,7 @@ struct ChatView: View {
                             }
                         }
 
-                        if showsGitControls, !isHermesSession, gitAvailabilityViewModel.hasRepository {
+                        if showsGitControls, gitAvailabilityViewModel.hasRepository {
                             ChatToolbarActionSlot {
                                 gitActionsMenu
                             }
@@ -1125,8 +1125,14 @@ struct ChatView: View {
                 }
             }
             .sheet(item: $openedFileReference, content: fileReferenceSheet)
-            // A file link opened in a Hermes chat's old folder reads through the old client: close it.
-            .onChange(of: viewModel.hermesWorkspace) { openedFileReference = nil }
+            // A file link or Git sheet opened in a Hermes chat's old folder reads through the old
+            // client: close it, and read the new folder's repository (#1114).
+            .onChange(of: viewModel.hermesWorkspace) {
+                openedFileReference = nil
+                activeGitSheet = nil
+                turnDiffPresentation = nil
+                Task { await loadInitialGitAvailability() }
+            }
             .sheet(item: $activeGitSheet, content: gitSheet)
             .sheet(item: $turnDiffPresentation, content: turnDiffSheet)
             .alert(item: $gitAlert, content: gitAlertPresentation)
@@ -1274,7 +1280,8 @@ struct ChatView: View {
     private var gitWriteAvailability: GitWriteAvailability {
         GitWriteAvailability(
             isStreaming: viewModel.activeStreamID != nil,
-            isViewingCachedData: viewModel.isViewingCachedData
+            isViewingCachedData: viewModel.isViewingCachedData,
+            hidesWrites: !gitAvailabilityViewModel.supportsWrites
         )
     }
 
@@ -1283,8 +1290,7 @@ struct ChatView: View {
         switch sheet {
         case .changes:
             GitWorkspaceView(
-                session: session,
-                server: server,
+                git: gitAvailabilityViewModel.git,
                 onAPIError: onAPIError,
                 onAddToPrompt: addDiffSelectionToDraft
             )
@@ -1306,8 +1312,7 @@ struct ChatView: View {
         switch presentation {
         case .turnFiles(let files, let initial):
             GitDiffView(
-                session: session,
-                server: server,
+                git: gitAvailabilityViewModel.git,
                 files: files,
                 initialFile: initial,
                 onAPIError: onAPIError,
@@ -1337,6 +1342,7 @@ struct ChatView: View {
             isEnabled: !viewModel.isViewingCachedData,
             fetchDisabled: gitWriteAvailability.fetchDisabled,
             writesDisabled: gitWriteAvailability.writesDisabled,
+            hidesWrites: gitWriteAvailability.hidesWrites,
             isRunningAction: gitAvailabilityViewModel.isRunningGitAction,
             onTap: {
                 HapticButtonHaptics.tap(isEnabled: isHapticsEnabled)
@@ -1372,6 +1378,7 @@ struct ChatView: View {
         guard ChatGitControlsVisibilityPolicy.showsInlineCommitButton(
             showsGitControls: showsGitControls,
             hasRepository: gitAvailabilityViewModel.hasRepository,
+            supportsWrites: gitAvailabilityViewModel.supportsWrites,
             isStreaming: viewModel.activeStreamID != nil,
             latestMessageRole: latestTranscriptMessageRole,
             hasCommittableChanges: gitAvailabilityViewModel.hasCommittableChanges,
@@ -2215,8 +2222,18 @@ struct ChatView: View {
         }
     }
 
+    /// A fresh Git state for the chat's repository: webui's session, or a Hermes chat's folder
+    /// while Files can read it (#1114), which has no writes. Without one, Git stays hidden.
     private func loadInitialGitAvailability() async {
-        let availabilityViewModel = GitWorkspaceAvailabilityViewModel(session: session, server: server)
+        let availabilityViewModel = if isHermesSession {
+            GitWorkspaceAvailabilityViewModel(
+                session: session,
+                server: server,
+                git: browsableHermesWorkspace == nil ? nil : viewModel.hermesWorkspaceGit
+            )
+        } else {
+            GitWorkspaceAvailabilityViewModel(session: session, server: server)
+        }
         gitAvailabilityViewModel = availabilityViewModel
         await availabilityViewModel.loadIfNeeded()
     }

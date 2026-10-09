@@ -4,6 +4,10 @@ import XCTest
 /// Request construction + tolerant decoding for the read-only workspace-git endpoints
 /// (issue #312, Slice A). Mirrors `APIClientWorkspaceFileTests`.
 final class APIClientGitTests: APIClientTestCase {
+    override func tearDown() {
+        HermesHostFixture.reset()
+        super.tearDown()
+    }
 
     private func query(_ request: URLRequest) throws -> [String: String?] {
         let components = URLComponents(url: try XCTUnwrap(request.url), resolvingAgainstBaseURL: false)
@@ -581,5 +585,168 @@ final class APIClientGitTests: APIClientTestCase {
         } catch let error as APIError {
             XCTAssertEqual(error.serverMessage, "Commit message is required")
         }
+    }
+}
+
+// MARK: - Hermes host (#1114)
+
+/// `HermesGitClient` against a scripted Hermes host whose replies are the shapes
+/// `hermes_cli/web_git.py` and `web_routers/files.py` answer at the pin (ca678285).
+extension APIClientGitTests {
+    /// A chat working in a subfolder reads the whole repository: the root is asked once, from
+    /// the folder, and every read names the root, so root-relative rows address their files.
+    @MainActor
+    func testAHermesRepositoryIsReadAtItsRootFromASubfolder() async throws {
+        let git = HermesGitHost.client(cwd: HermesGitHost.repository + "/Sources") { request in
+            HermesGitHost.repositoryReply(request, rows: [("Sources/App.swift", 3, 1, "M", false)],
+                                          flags: [("Sources/App.swift", false, true, false, false)])
+        }
+
+        let info = try await git.info()
+        let loaded = try await git.status()
+        let status = try XCTUnwrap(loaded)
+        let diff = try await git.diff(for: try XCTUnwrap(status.files?.first))
+
+        XCTAssertEqual(HermesGitHost.requests.map(HermesGitHost.describe), [
+            "/api/fs/git-root path=\(HermesGitHost.repository)/Sources",
+            "/api/git/status path=\(HermesGitHost.repository)",
+            "/api/git/status path=\(HermesGitHost.repository)",
+            "/api/git/review/list path=\(HermesGitHost.repository) scope=uncommitted",
+            "/api/git/review/diff path=\(HermesGitHost.repository) file=Sources/App.swift scope=uncommitted staged=false"
+        ])
+        XCTAssertEqual(info?.isGit, true)
+        XCTAssertEqual(status.files?.map(\.displayPath), ["Sources/App.swift"])
+        XCTAssertEqual(diff?.diff, HermesGitHost.diffText(for: "Sources/App.swift"))
+    }
+
+    /// A staged-only row asks for its staged diff, any other for its worktree diff, where the host
+    /// synthesizes an all-add diff for an untracked file. A binary change and a diff past webui's
+    /// 512 KiB cap read as the existing notices, not as text.
+    @MainActor
+    func testAHermesDiffAsksForTheRowsKindAndNamesBinaryAndOversizedChanges() async throws {
+        let huge = String(repeating: "+x\n", count: 200_000)
+        let git = HermesGitHost.client { request in
+            guard request.url?.path == "/api/git/review/diff" else { return HermesGitHost.repositoryReply(request) }
+            let text: String = switch HermesGitHost.query(request, "file") {
+            case "logo.png": "diff --git a/logo.png b/logo.png\nBinary files a/logo.png and b/logo.png differ\n"
+            case "huge.txt": "diff --git a/huge.txt b/huge.txt\n@@ -0,0 +1,200000 @@\n" + huge
+            case let file?: HermesGitHost.diffText(for: file)
+            case nil: ""
+            }
+            return .json(200, .object(["diff": .string(text)]))
+        }
+        let staged = GitFile(path: "New.swift", status: "A", staged: true, unstaged: false, untracked: false,
+                             conflict: false, additions: 2, deletions: 0)
+        let untracked = GitFile(path: "notes.txt", status: "?", staged: false, unstaged: true, untracked: true,
+                                conflict: false, additions: 1, deletions: 0)
+
+        let stagedDiff = try await git.diff(for: staged)
+        let untrackedDiff = try await git.diff(for: untracked)
+        let binary = try await git.diff(for: GitFile(path: "logo.png", status: "M", staged: false, unstaged: true,
+                                                     untracked: false, conflict: false, additions: 0, deletions: 0))
+        let oversized = try await git.diff(for: GitFile(path: "huge.txt", status: "?", staged: false, unstaged: true,
+                                                        untracked: true, conflict: false, additions: 200_000, deletions: 0))
+
+        let diffs = HermesGitHost.requests.filter { $0.url?.path == "/api/git/review/diff" }
+        XCTAssertEqual(diffs.map { HermesGitHost.query($0, "staged") }, ["true", "false", "false", "false"])
+        XCTAssertEqual(stagedDiff?.diff, HermesGitHost.diffText(for: "New.swift"))
+        XCTAssertEqual(untrackedDiff?.diff, HermesGitHost.diffText(for: "notes.txt"))
+        XCTAssertEqual(DiffHunk.parse(untrackedDiff?.diff ?? "").map(\.additions), [1])
+        XCTAssertEqual(binary?.binary, true)
+        XCTAssertEqual(oversized?.tooLarge, true)
+        XCTAssertNil(oversized?.diff)
+    }
+
+    /// A failed git call is 400 `{detail}`, git's own stderr, which can name host paths: it reads
+    /// as the existing repository-unavailable copy, never the detail.
+    @MainActor
+    func testAHermesRefusalNeverShowsGitsOutput() async throws {
+        let detail = "fatal: not a git repository: '\(HermesGitHost.repository)/.git'"
+        let git = HermesGitHost.client { request in
+            request.url?.path == "/api/git/review/list"
+                ? .json(400, .object(["detail": .string(detail)])) : HermesGitHost.repositoryReply(request)
+        }
+
+        do {
+            _ = try await git.status()
+            XCTFail("Expected the refusal to fail the status")
+        } catch {
+            XCTAssertEqual(error.localizedDescription, String(localized: "Repository status unavailable"))
+        }
+    }
+}
+
+/// A scripted Hermes host's repository for `APIClientGitTests` and `GitWorkspaceViewModelTests`.
+enum HermesGitHost {
+    static let repository = "/Users/agent/projects/app"
+    private static let record = BotConnection(id: UUID(), name: "Host", address: URL(string: "https://hermes.example")!,
+                                              username: "user", password: "secret")
+
+    /// A Hermes chat's repository client on a host `script` answers.
+    @MainActor static func client(cwd: String = repository,
+                                  _ script: @escaping (URLRequest) -> HermesHostFixture.Reply?) -> HermesGitClient {
+        HermesGitClient(context: HermesWorkspaceFileClientTests.context(cwd: cwd),
+                        http: HermesConnection(connection: record, configuration: HermesHostFixture.configuration(script)))
+    }
+
+    /// The host's reply for a repository at `root` whose uncommitted changes are `rows`
+    /// (`review/list`) and whose status flags are `flags` (`status.files`, capped at 200 by the host).
+    static func repositoryReply(
+        _ request: URLRequest, root: String? = repository, branch: String = "main", ahead: Int = 0, behind: Int = 0,
+        rows: [(path: String, added: Int, removed: Int, status: String, staged: Bool)] = [],
+        flags: [(path: String, staged: Bool, unstaged: Bool, untracked: Bool, conflicted: Bool)] = []
+    ) -> HermesHostFixture.Reply? {
+        switch request.url?.path {
+        case "/api/fs/git-root":
+            return .json(200, .object(["root": root.map(BotJSON.string) ?? .null]))
+        case "/api/git/status":
+            let count = { (flag: KeyPath<(path: String, staged: Bool, unstaged: Bool, untracked: Bool, conflicted: Bool), Bool>) in
+                BotJSON.number(Double(flags.filter { $0[keyPath: flag] }.count))
+            }
+            return .json(200, .object([
+                "branch": .string(branch), "defaultBranch": .string("main"), "detached": .bool(false),
+                "ahead": .number(Double(ahead)), "behind": .number(Double(behind)),
+                "staged": count(\.staged), "unstaged": count(\.unstaged), "untracked": count(\.untracked),
+                "conflicted": count(\.conflicted), "changed": .number(Double(max(rows.count, flags.count))),
+                "added": .number(Double(rows.reduce(0) { $0 + $1.added })),
+                "removed": .number(Double(rows.reduce(0) { $0 + $1.removed })),
+                "files": .array(flags.prefix(200).map {
+                    .object(["path": .string($0.path), "staged": .bool($0.staged), "unstaged": .bool($0.unstaged),
+                             "untracked": .bool($0.untracked), "conflicted": .bool($0.conflicted)])
+                })
+            ]))
+        case "/api/git/review/list":
+            return .json(200, .object(["base": .null, "files": .array(rows.map {
+                .object(["path": .string($0.path), "added": .number(Double($0.added)), "removed": .number(Double($0.removed)),
+                         "status": .string($0.status), "staged": .bool($0.staged)])
+            })]))
+        case "/api/git/review/diff":
+            return .json(200, .object(["diff": .string(diffText(for: query(request, "file") ?? ""))]))
+        default:
+            return nil
+        }
+    }
+
+    /// A one-line all-add diff of `file`, whose only line is the file's name.
+    static func diffText(for file: String) -> String {
+        "diff --git a/\(file) b/\(file)\n--- /dev/null\n+++ b/\(file)\n@@ -0,0 +1 @@\n+\(file)\n"
+    }
+
+    /// The requests to the git routes, without the sign-in's.
+    static var requests: [URLRequest] {
+        HermesHostFixture.requests.filter {
+            $0.url?.path.hasPrefix("/api/git/") == true || $0.url?.path == "/api/fs/git-root"
+        }
+    }
+
+    /// A request's route and query, as `/api/git/status path=/repo`.
+    static func describe(_ request: URLRequest) -> String {
+        let items = request.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false) }?.queryItems ?? []
+        return ([request.url?.path ?? ""] + items.map { "\($0.name)=\($0.value ?? "")" }).joined(separator: " ")
+    }
+
+    static func query(_ request: URLRequest, _ name: String) -> String? {
+        request.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false) }?.queryItems?
+            .first { $0.name == name }?.value
     }
 }
