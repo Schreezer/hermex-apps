@@ -1481,9 +1481,10 @@ panel (#1113) and Git (#1114) read the same context.
   No Preview, and `truncated` shows the start with a "Preview truncated" note, without a line
   count. A symlinked folder answers 400 `Path points to a directory` to `read-text` and
   `download` alike (`BotArtifactFailure.folder`), which shows No Preview whatever its name.
-  Image, Quick Look and MEDIA previews and MEDIA thumbnails stop at 25 MB; Save and Share, and an
-  inline MEDIA file's export and audio, have no cap, as on webui. Save and Share accept an empty
-  file; every other download treats an empty body as a failed read. Inline MEDIA in the
+  Image, Quick Look and MEDIA previews and MEDIA thumbnails stop at 25 MB; Save and Share (of a
+  file, or of a MEDIA image or video whose preview stopped there), and an inline MEDIA file's
+  export and audio, have no cap, as on webui. Save and Share accept an empty file; every other
+  download treats an empty body as a failed read. Inline MEDIA in the
   transcript downloads as sent files do, on the session's Profile and stored key.
 - **Caches.** The tree's expansion is kept per server, Profile, stored key and `cwd`, so two
   chats in one folder never share it. A `cwd` change closes a file preview or file link opened

@@ -327,6 +327,34 @@ final class TranscriptMediaPreviewViewModelTests: XCTestCase {
         viewModel.cleanupTemporaryFiles()
     }
 
+    /// A Hermes MEDIA file past the 25 MB preview cap shows no preview but keeps Save and Share,
+    /// which download the whole file by the same path.
+    func testAHermesMediaFilePastThePreviewCapStillExportsWhole() async throws {
+        defer { HermesHostFixture.reset() }
+        let size = BotArtifactBuffer.maximumBytes + 1
+        let files = HermesWorkspaceFileClientTests.client { request in
+            request.url?.path == "/api/fs/download" ? .body(200, Data(repeating: 0x61, count: size)) : nil
+        }
+        let viewModel = TranscriptMediaPreviewViewModel(
+            server: Self.baseURL,
+            files: files,
+            reference: .init(rawReference: "/tmp/hermes/huge.png"),
+            apiClient: makeClient { self.response(statusCode: 404, data: Data(), for: $0) }
+        )
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.lastError as? BotArtifactFailure, .tooLarge)
+        XCTAssertNil(viewModel.previewData)
+        XCTAssertFalse(viewModel.canSaveMediaToPhotos)
+        XCTAssertTrue(viewModel.canExportMedia)
+        let payload = try await viewModel.exportPayload()
+        XCTAssertEqual(payload.data.count, size)
+        XCTAssertEqual(payload.filename, "huge.png")
+        XCTAssertEqual(HermesWorkspaceFileClientTests.fileRequests.compactMap(\.url).map { queryItems(for: $0)["path"] },
+                       ["/tmp/hermes/huge.png", "/tmp/hermes/huge.png"])
+    }
+
     func testLoadLocalVideoWithoutSessionIDDoesNotRequestMediaEndpoint() async {
         let recorder = TranscriptMediaPreviewRequestRecorder()
         let client = makeClient { request in

@@ -97,9 +97,15 @@ struct HermesWorkspaceContext: Hashable, Sendable {
     }
 
     /// A MEDIA path is the reply's own, often outside the folder, so it is sent as written; the
-    /// host resolves it against the session and decides what it serves.
+    /// host resolves it against the session and decides what it serves. At most 25 MB, for the
+    /// MEDIA viewer's preview.
     func mediaData(path: String) async throws -> Data {
         try await download(path)
+    }
+
+    /// `mediaData` for Save and Share: the whole file, as `rawFileData` reads one.
+    func mediaExportData(path: String) async throws -> Data {
+        try await download(path, limit: nil, allowsEmpty: true)
     }
 
     /// The host path of `path`, a workspace-relative path: the folder itself for

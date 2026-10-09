@@ -13,6 +13,8 @@ final class TranscriptMediaPreviewViewModel {
     private var didLoad = false
     private var loadGeneration = 0
     private var originalData: Data?
+    /// The preview stopped at its 25 MB cap (a Hermes host), so export reads the whole file.
+    private var isPastPreviewCap = false
     private var temporaryVideoURL: URL?
 
     private(set) var previewData: Data?
@@ -47,7 +49,7 @@ final class TranscriptMediaPreviewViewModel {
     }
 
     var canExportMedia: Bool {
-        originalData != nil
+        originalData != nil || isPastPreviewCap
     }
 
     func load(force: Bool = false) async {
@@ -60,6 +62,7 @@ final class TranscriptMediaPreviewViewModel {
         videoFileURL = nil
         originalByteCount = nil
         originalData = nil
+        isPastPreviewCap = false
         removeTemporaryVideoFile()
 
         guard reference.isRasterImageCandidate || reference.isVideoCandidate else {
@@ -116,6 +119,7 @@ final class TranscriptMediaPreviewViewModel {
             guard !Task.isCancelled, loadGeneration == generation else { return }
             lastError = error
             errorMessage = error.localizedDescription
+            isPastPreviewCap = error as? BotArtifactFailure == .tooLarge
         }
     }
 
@@ -136,7 +140,11 @@ final class TranscriptMediaPreviewViewModel {
     }
 
     func exportPayload() async throws -> FileExportPayload {
-        let data = try await originalMediaData()
+        let data = if isPastPreviewCap, case let .localPath(path) = reference.source, let files {
+            try await files.mediaExportData(path: path)
+        } else {
+            try await originalMediaData()
+        }
         return TranscriptMediaExportSupport.payload(
             for: reference,
             data: data,

@@ -19,8 +19,11 @@ protocol WorkspaceFileClient: Sendable {
     /// An image's bytes for its preview, which its export then reuses: the whole file on webui,
     /// at most 25 MB on a Hermes host.
     func imagePreviewData(path: String) async throws -> Data
-    /// A MEDIA reference's bytes, by the local path the reply names.
+    /// A MEDIA reference's bytes, by the local path the reply names: the whole file on webui, at
+    /// most 25 MB on a Hermes host.
     func mediaData(path: String) async throws -> Data
+    /// A MEDIA reference's whole bytes, for Save and Share once `mediaData` stopped at its cap.
+    func mediaExportData(path: String) async throws -> Data
 }
 
 /// A folder the server answered for without its entries (#1112): a Hermes host lists a folder it
@@ -78,6 +81,10 @@ struct WebUIWorkspaceFileClient: WorkspaceFileClient {
     }
 
     func mediaData(path: String) async throws -> Data {
+        try await apiClient.mediaData(sessionID: sessionID, path: path)
+    }
+
+    func mediaExportData(path: String) async throws -> Data {
         try await apiClient.mediaData(sessionID: sessionID, path: path)
     }
 }
