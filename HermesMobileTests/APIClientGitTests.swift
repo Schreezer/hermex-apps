@@ -607,13 +607,17 @@ extension APIClientGitTests {
         let status = try XCTUnwrap(loaded)
         let diff = try await git.diff(for: try XCTUnwrap(status.files?.first))
 
-        XCTAssertEqual(HermesGitHost.requests.map(HermesGitHost.describe), [
-            "/api/fs/git-root path=\(HermesGitHost.repository)/Sources",
-            "/api/git/status path=\(HermesGitHost.repository)",
-            "/api/git/status path=\(HermesGitHost.repository)",
+        // `status()` sends its two reads at once, so they arrive in either order.
+        let requests = HermesGitHost.requests.map(HermesGitHost.describe)
+        XCTAssertEqual(requests.count, 5)
+        XCTAssertEqual(requests.first, "/api/fs/git-root path=\(HermesGitHost.repository)/Sources")
+        XCTAssertEqual(requests[1], "/api/git/status path=\(HermesGitHost.repository)")
+        XCTAssertEqual(requests.dropFirst(2).prefix(2).sorted(), [
             "/api/git/review/list path=\(HermesGitHost.repository) scope=uncommitted",
-            "/api/git/review/diff path=\(HermesGitHost.repository) file=Sources/App.swift scope=uncommitted staged=false"
+            "/api/git/status path=\(HermesGitHost.repository)"
         ])
+        XCTAssertEqual(requests.last,
+                       "/api/git/review/diff path=\(HermesGitHost.repository) file=Sources/App.swift scope=uncommitted staged=false")
         XCTAssertEqual(info?.isGit, true)
         XCTAssertEqual(status.files?.map(\.displayPath), ["Sources/App.swift"])
         XCTAssertEqual(diff?.diff, HermesGitHost.diffText(for: "Sources/App.swift"))

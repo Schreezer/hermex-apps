@@ -208,6 +208,23 @@ final class GitWorkspaceViewModelTests: APIClientTestCase {
         XCTAssertFalse(loading.changesAreEnabled)
     }
 
+    /// The read-only menu's branch row: the branch alone when it matches its upstream, with the
+    /// Changes header's "↑ahead ↓behind" when it has moved, and none outside a repository.
+    func testToolbarBranchSummaryShowsTheBranchAndItsDistanceFromUpstream() {
+        func summary(_ info: GitInfo?, hasRepository: Bool = true) -> String? {
+            GitToolbarPresentation(hasRepository: hasRepository, isLoading: false, info: info, status: nil,
+                                   statusFailed: false).branchSummary
+        }
+        let info = { (ahead: Int, behind: Int) in
+            GitInfo(branch: "main", dirty: 0, modified: 0, untracked: 0, ahead: ahead, behind: behind, isGit: true)
+        }
+
+        XCTAssertEqual(summary(info(0, 0)), "main")
+        XCTAssertEqual(summary(info(0, 3)), "main  ↑0 ↓3")
+        XCTAssertNil(summary(info(1, 0), hasRepository: false))
+        XCTAssertNil(summary(nil))
+    }
+
     @MainActor
     func testAvailabilityHidesForNonRepositoryAndNullGitInfo() async throws {
         var returnsNullGit = false
@@ -444,9 +461,10 @@ final class GitWorkspaceViewModelTests: APIClientTestCase {
         XCTAssertEqual(availability.gitInfo?.behind, 1)
         XCTAssertEqual(availability.gitInfo?.dirty, 5)
         XCTAssertNil(availability.branches)
-        XCTAssertEqual(GitToolbarPresentation(hasRepository: true, isLoading: false, info: availability.gitInfo,
-                                              status: availability.status, statusFailed: false).accessibilityValue,
-                       String(localized: "Local changes exist and remote branch moved ahead"))
+        let presentation = GitToolbarPresentation(hasRepository: true, isLoading: false, info: availability.gitInfo,
+                                                  status: availability.status, statusFailed: false)
+        XCTAssertEqual(presentation.accessibilityValue, String(localized: "Local changes exist and remote branch moved ahead"))
+        XCTAssertEqual(presentation.branchSummary, "feature/x  ↑2 ↓1")
         let files = try XCTUnwrap(changes.status?.trackedFiles)
         XCTAssertEqual(files.map(\.displayPath), ["README.md", "Sources/Both.swift", "Sources/New.swift", "conflict.txt", "notes.txt"])
         XCTAssertEqual(files.map(\.changeKind), [.modified, .modified, .added, .conflict, .untracked])
@@ -495,6 +513,46 @@ final class GitWorkspaceViewModelTests: APIClientTestCase {
         XCTAssertEqual(DiffHunk.parse(diff?.diff ?? "").map(\.additions), [2])
     }
 
+    /// Before the first commit `file-diff` (`git diff HEAD`) is empty, so a staged new file past
+    /// the cap shows its current content as all additions, worktree edits included, as webui shows
+    /// an untracked file; a binary one reads as binary.
+    @MainActor
+    func testAHermesStagedFileBeforeTheFirstCommitShowsItsCurrentContent() async throws {
+        let capped = (0..<200).map { String(format: "f%03d.txt", $0) }
+        let git = HermesGitHost.client { request in
+            switch request.url?.path {
+            case "/api/git/file-diff":
+                return .json(200, .object(["diff": .string("")]))
+            case "/api/fs/read-text":
+                let binary = HermesGitHost.query(request, "path")?.hasSuffix(".png") == true
+                return .json(200, .object(["binary": .bool(binary), "byteSize": .number(16), "truncated": .bool(false),
+                                           "text": .string(binary ? "\u{FFFD}PNG" : "staged\nworktree\n")]))
+            default:
+                return HermesGitHost.repositoryReply(request,
+                    rows: capped.map { ($0, 1, 0, "A", true) } + [("New.swift", 2, 0, "A", true), ("logo.png", 0, 0, "A", true)],
+                    flags: capped.map { ($0, true, false, false, false) } + [("New.swift", true, true, false, false),
+                                                                            ("logo.png", true, false, false, false)])
+            }
+        }
+        let changes = GitWorkspaceViewModel(git: git)
+        await changes.load()
+        let pastCap = Array(try XCTUnwrap(changes.status).trackedFiles.suffix(2))
+
+        let diff = try await git.diff(for: pastCap[0])
+
+        XCTAssertEqual(HermesHostFixture.requests.suffix(2).map(HermesGitHost.describe), [
+            "/api/git/file-diff path=\(HermesGitHost.repository) file=New.swift",
+            "/api/fs/read-text path=\(HermesGitHost.repository)/New.swift"
+        ])
+        XCTAssertEqual(DiffHunk.parse(diff?.diff ?? "").map(\.additions), [2])
+        XCTAssertTrue(diff?.diff?.contains("+worktree\n") == true)
+        XCTAssertEqual(diff?.binary, false)
+
+        let image = try await git.diff(for: pastCap[1])
+
+        XCTAssertEqual(image?.binary, true)
+    }
+
     /// Hermes tools name files relative to the chat's folder or absolutely, while rows are relative
     /// to the repository root. From `Sources`, the turn's `App.swift` is `Sources/App.swift`, not
     /// the root's `App.swift`, and an absolute path picks its own row, so the card opens that diff.
@@ -524,6 +582,64 @@ final class GitWorkspaceViewModelTests: APIClientTestCase {
         XCTAssertEqual(summary.diffFiles.map(\.displayPath), ["Sources/App.swift", "Sources/Model.swift"])
         XCTAssertEqual(HermesGitHost.requests.last.map { HermesGitHost.query($0, "file") }, "Sources/App.swift")
         XCTAssertEqual(diff?.diff, HermesGitHost.diffText(for: "Sources/App.swift"))
+    }
+
+    /// A tool path is anchored to the chat's folder and its dot segments collapsed, as the host
+    /// resolves it, so `../README.md` from `Sources` is the root's README, not `Sources/README.md`.
+    @MainActor
+    func testAHermesTurnCardFollowsDotSegmentsFromTheChatsFolder() async throws {
+        let git = HermesGitHost.client(cwd: HermesGitHost.repository + "/Sources") { request in
+            HermesGitHost.repositoryReply(request, rows: [("README.md", 4, 0, "M", false), ("Sources/Model.swift", 2, 0, "M", false),
+                                                          ("Sources/README.md", 1, 0, "M", false)],
+                                          flags: [("README.md", false, true, false, false),
+                                                  ("Sources/Model.swift", false, true, false, false),
+                                                  ("Sources/README.md", false, true, false, false)])
+        }
+        let availability = GitWorkspaceAvailabilityViewModel(
+            session: SessionSummary(), server: URL(string: "https://webui.example")!, git: git
+        )
+        await availability.load()
+
+        let summary = TurnFileChangeAggregator.summarize(toolCalls: [
+            ToolCall(name: "write_file", preview: nil, args: ["path": .string("../README.md")]),
+            ToolCall(name: "patch", preview: nil, args: ["path": .string("Nested/../Model.swift")])
+        ], status: availability.status, rowPath: git.rowPath(forToolPath:))
+        _ = try await git.diff(for: try XCTUnwrap(summary.diffFiles.first))
+
+        XCTAssertEqual(summary.changes.map(\.path), ["README.md", "Sources/Model.swift"])
+        XCTAssertEqual(summary.changes.map(\.additions), [4, 2])
+        XCTAssertEqual(HermesGitHost.requests.last.map { HermesGitHost.query($0, "file") }, "README.md")
+    }
+
+    /// The host resolves symlinks in the root it returns (`/private/tmp/app` on a Mac) but keeps
+    /// the folder as configured (`/tmp/app/Sources`). The folder still maps into the root, so the
+    /// turn's `App.swift` is `Sources/App.swift`, not the root's `App.swift`.
+    @MainActor
+    func testAHermesTurnCardMapsAFolderSpelledThroughASymlink() async throws {
+        let root = "/private/tmp/app"
+        let git = HermesGitHost.client(cwd: "/tmp/app/Sources") { request in
+            HermesGitHost.repositoryReply(request, root: root,
+                                          rows: [("App.swift", 9, 9, "M", false), ("Sources/App.swift", 3, 1, "M", false),
+                                                 ("Sources/Model.swift", 2, 0, "M", false)],
+                                          flags: [("App.swift", false, true, false, false),
+                                                  ("Sources/App.swift", false, true, false, false),
+                                                  ("Sources/Model.swift", false, true, false, false)])
+        }
+        let availability = GitWorkspaceAvailabilityViewModel(
+            session: SessionSummary(), server: URL(string: "https://webui.example")!, git: git
+        )
+        await availability.load()
+
+        let summary = TurnFileChangeAggregator.summarize(toolCalls: [
+            ToolCall(name: "write_file", preview: nil, args: ["path": .string("App.swift")]),
+            ToolCall(name: "patch", preview: nil, args: ["path": .string("/tmp/app/Sources/Model.swift")])
+        ], status: availability.status, rowPath: git.rowPath(forToolPath:))
+        _ = try await git.diff(for: try XCTUnwrap(summary.diffFiles.first))
+
+        XCTAssertEqual(summary.changes.map(\.path), ["Sources/App.swift", "Sources/Model.swift"])
+        XCTAssertEqual(summary.changes.map(\.additions), [3, 2])
+        XCTAssertEqual(HermesGitHost.requests.last.map(HermesGitHost.describe),
+                       "/api/git/review/diff path=\(root) file=Sources/App.swift scope=uncommitted staged=false")
     }
 
     /// A folder outside a repository hides Git without asking for its status, and the Changes

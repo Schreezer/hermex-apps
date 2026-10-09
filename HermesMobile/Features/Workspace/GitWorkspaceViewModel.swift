@@ -499,6 +499,15 @@ struct GitToolbarPresentation: Equatable {
     }
 
     var changesAreEnabled: Bool { !isLoading && (status != nil || statusFailed) }
+
+    /// The branch, with the Changes header's "↑ahead ↓behind" once it has moved from its
+    /// upstream, for the read-only menu, which has no branch picker. Nil without a branch.
+    var branchSummary: String? {
+        guard hasRepository, let branch = info?.branch ?? status?.branch, !branch.isEmpty else { return nil }
+        let ahead = info?.ahead ?? status?.ahead ?? 0
+        let behind = info?.behind ?? status?.behind ?? 0
+        return ahead > 0 || behind > 0 ? "\(branch)  ↑\(ahead) ↓\(behind)" : branch
+    }
 }
 
 /// Which mutating operation the advanced staging sheet is currently running, used to

@@ -47,8 +47,9 @@ import Foundation
 
     /// The row's staged diff when it has only staged changes, else its worktree diff, which the
     /// host synthesizes as all-add for an untracked file. A staged row past the status cap may also
-    /// have worktree edits, so it reads its whole change against HEAD. Over `maximumDiffBytes` it
-    /// is too large.
+    /// have worktree edits, so it reads its whole change against HEAD; before the first commit
+    /// there is no HEAD and that read is empty, so a new file reads as its current content
+    /// (`currentContent(of:root:)`). Over `maximumDiffBytes` it is too large.
     func diff(for file: GitFile) async throws -> GitDiff? {
         guard let root = try await repositoryRoot() else { return nil }
         let path = file.displayPath
@@ -57,9 +58,26 @@ import Foundation
         let request: HermesREST = wholeChange ? .gitFileDiff(repository: root, file: path)
             : .gitDiff(repository: root, file: path, staged: kind == "staged")
         let text = try Self.json(try await send(request))["diff"].text ?? ""
+        if wholeChange, text.isEmpty, file.changeKind == .added {
+            return try await currentContent(of: path, root: root)
+        }
         let tooLarge = text.utf8.count > Self.maximumDiffBytes
         return GitDiff(path: path, kind: kind, binary: Self.isBinary(text),
                        tooLarge: tooLarge, additions: nil, deletions: nil, diff: tooLarge ? nil : text)
+    }
+
+    /// A new file's whole content as an all-add diff, from `fs/read-text` (its first 512 KiB,
+    /// `truncated` past that, the same cap as `maximumDiffBytes`).
+    private func currentContent(of path: String, root: String) async throws -> GitDiff {
+        let file = try Self.json(try await send(.fsReadText(path: root + "/" + path)))
+        let binary = file["binary"].flag == true
+        let tooLarge = file["truncated"].flag == true
+        var lines = (file["text"].text ?? "").components(separatedBy: "\n")
+        if lines.last == "" { lines.removeLast() }
+        let diff = "diff --git a/\(path) b/\(path)\n--- /dev/null\n+++ b/\(path)\n"
+            + (lines.isEmpty ? "" : "@@ -0,0 +1,\(lines.count) @@\n" + lines.map { "+\($0)\n" }.joined())
+        return GitDiff(path: path, kind: nil, binary: binary, tooLarge: tooLarge, additions: nil, deletions: nil,
+                       diff: binary || tooLarge ? nil : diff)
     }
 
     /// A turn's tool path as its row's root-relative path: Hermes tools name files relative to the
@@ -70,14 +88,32 @@ import Foundation
     }
 
     /// `rowPath(forToolPath:)` for a chat working in `folder` inside the repository at `root`.
+    /// The path is anchored to the folder and its `.` and `..` collapsed, as the host resolves
+    /// it. The host's root has its symlinks resolved and the folder may not, so a folder spelled
+    /// through one (`/tmp/app/Sources` in `/private/tmp/app`) is matched by the root's trailing
+    /// folders. Symlinks aren't followed: one that renames a folder leaves the path as named.
     nonisolated static func rowPath(_ path: String, folder: String, root: String) -> String {
-        let rootPrefix = root.hasSuffix("/") ? root : root + "/"
-        if path.hasPrefix(rootPrefix) { return String(path.dropFirst(rootPrefix.count)) }
-        guard !path.hasPrefix("/") else { return path }
-        let folderPrefix = folder.hasSuffix("/") ? folder : folder + "/"
-        if folderPrefix == rootPrefix { return path }
-        guard folderPrefix.hasPrefix(rootPrefix) else { return path }
-        return String(folderPrefix.dropFirst(rootPrefix.count)) + path
+        let target = components(path.hasPrefix("/") ? path : folder + "/" + path)
+        let rootParts = components(root)
+        let folderParts = components(folder)
+        let folderSpelling = (0...min(rootParts.count, folderParts.count)).reversed().lazy
+            .map { Array(folderParts.prefix($0)) }
+            .first { !$0.isEmpty && rootParts.suffix($0.count).elementsEqual($0) }
+        for base in [rootParts, folderSpelling].compactMap({ $0 }) where target.count > base.count && target.starts(with: base) {
+            return target.dropFirst(base.count).joined(separator: "/")
+        }
+        return path
+    }
+
+    /// An absolute path's folder names, with `.` dropped and `..` taking off the one before it.
+    private nonisolated static func components(_ path: String) -> [String] {
+        path.split(separator: "/").reduce(into: []) { parts, part in
+            switch part {
+            case ".": break
+            case "..": _ = parts.popLast()
+            default: parts.append(String(part))
+            }
+        }
     }
 
     /// `git/status` and `review/list` as one `GitStatus`. Rows are `review/list`'s, which lists

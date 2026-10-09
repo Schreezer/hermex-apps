@@ -5,7 +5,8 @@ struct GitActionsMenuButton: View {
     let isEnabled: Bool
     let fetchDisabled: Bool
     let writesDisabled: Bool
-    /// Leaves only Changes in the menu, for a read-only repository (`GitWriteAvailability.hidesWrites`).
+    /// Leaves only the branch and Changes in the menu, for a read-only repository
+    /// (`GitWriteAvailability.hidesWrites`), whose branch the composer's picker doesn't show.
     var hidesWrites = false
     let isRunningAction: Bool
     let onTap: () -> Void
@@ -23,6 +24,12 @@ struct GitActionsMenuButton: View {
 
     var body: some View {
         Menu {
+            if hidesWrites, let branch = presentation.branchSummary {
+                Section {
+                    Label(branch, systemImage: "arrow.triangle.branch")
+                }
+            }
+
             Section("Changes") {
                 Button(action: onChanges) {
                     changesLabel
