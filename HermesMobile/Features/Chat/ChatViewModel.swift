@@ -462,7 +462,8 @@ final class ChatViewModel {
     @ObservationIgnored private var checkedFileChipCandidates: Set<String> = []
     /// Bumped whenever the confirmed paths are thrown away because the
     /// workspace moved. The chat re-runs its confirmation pass on the change, so
-    /// a file that exists in the new workspace too comes back as a chip.
+    /// a file that exists in the new workspace too comes back as a chip, and a
+    /// pass started under an older revision applies nothing.
     private(set) var fileChipScopeRevision = 0
     /// Bumped whenever the transcript is replaced rather than extended: a
     /// cache-first paint, the server's reconcile, a page of older messages. A
@@ -4340,12 +4341,6 @@ final class ChatViewModel {
         return .webui(sessionID: sessionID)
     }
 
-    /// What a confirmation pass must still be looking at when it lands: the webui session's
-    /// workspace, or the Hermes chat's folder.
-    private var fileReferenceScope: String? {
-        hermesTurn == nil ? currentWorkspace : hermesTurn?.cwd
-    }
-
     /// Whether the composer opens its `@` panel for this chat.
     var offersFilePathSearch: Bool { fileReferenceSource != nil }
 
@@ -4398,16 +4393,17 @@ final class ChatViewModel {
     /// down with it, and a caller arriving mid-pass waits for that pass rather
     /// than starting a second one over the same folders.
     func loadFileChipReferences(draft: String) async {
-        guard let source = fileReferenceSource else { return }
-
         while let existing = fileChipReferenceLoad {
             await existing.value
         }
 
+        // Resolved after the wait: the workspace may have moved meanwhile, such as a Hermes
+        // folder leaving the `local` backend, which closes the source.
+        guard let source = fileReferenceSource else { return }
         let candidates = fileChipReferenceCandidates(draft: draft)
         guard !candidates.isEmpty else { return }
 
-        let scope = fileReferenceScope
+        let scope = fileChipScopeRevision
         fileChipReferenceLoadGeneration &+= 1
         let loadGeneration = fileChipReferenceLoadGeneration
         let load = Task { [weak self] in
@@ -4475,11 +4471,12 @@ final class ChatViewModel {
     /// A folder whose listing failed leaves its candidates unanswered rather
     /// than answered "no", so the next pass retries them; a folder that answered
     /// marks its candidates settled, which is what keeps a `@word` that is not a
-    /// file from costing a request on every transcript update.
+    /// file from costing a request on every transcript update. `scope` is the
+    /// `fileChipScopeRevision` the pass started under; nothing applies once it moves.
     private func confirmFileChipReferences(
         _ candidates: [String],
         source: FileReferenceSource,
-        scope: String?
+        scope: Int
     ) async {
         var wantedByDirectory: [String: Set<String>] = [:]
         var directories: [String] = []
@@ -4522,7 +4519,7 @@ final class ChatViewModel {
             // left, or its workspace switched, part-way through a long pass, and
             // a listing taken against the old root must never widen the new
             // one's catalog.
-            guard !Task.isCancelled, scope == fileReferenceScope else { return }
+            guard !Task.isCancelled, scope == fileChipScopeRevision else { return }
 
             apply(confirmed: confirmed, settled: settled)
         }

@@ -49,6 +49,9 @@ final class ComposerFilePathSearch {
 
     private(set) var matches: [Match] = []
     private(set) var isLoading = false
+    /// Bumped by `reset()`. The panel loads again on it, so a query left open while the
+    /// workspace moved asks the new one rather than showing no rows.
+    private(set) var scopeRevision = 0
 
     /// Directory path → its entries. A composer is short-lived next to a
     /// workspace, and the worst a stale row can do is send the viewer after a
@@ -168,6 +171,7 @@ final class ComposerFilePathSearch {
         // one's cache.
         generation &+= 1
         cacheGeneration &+= 1
+        scopeRevision &+= 1
         listings.removeAll()
         loadedSessionID = nil
         matches = []
