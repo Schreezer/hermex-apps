@@ -546,6 +546,7 @@
 		C8230A000000000000000003 /* HermesREST.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8230A000000000000000004 /* HermesREST.swift */; };
 		E1043000000000000000A001 /* HermesKanbanClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1043000000000000000A002 /* HermesKanbanClient.swift */; };
 		E1069000000000000000A001 /* HermesSkillsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1069000000000000000A002 /* HermesSkillsClient.swift */; };
+		E1112000000000000000A001 /* HermesWorkspaceFileClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1112000000000000000A002 /* HermesWorkspaceFileClient.swift */; };
 		E1075000000000000000A001 /* HermesUpdateClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1075000000000000000A002 /* HermesUpdateClient.swift */; };
 		E1074000000000000000A001 /* HermesInsightsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1074000000000000000A002 /* HermesInsightsClient.swift */; };
 		E1046000000000000000A001 /* HermesSessionPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1046000000000000000A002 /* HermesSessionPage.swift */; };
@@ -575,6 +576,7 @@
 		E1040000000000000000A003 /* HermesCronClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1040000000000000000A004 /* HermesCronClientTests.swift */; };
 		E1043000000000000000A003 /* HermesKanbanClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1043000000000000000A004 /* HermesKanbanClientTests.swift */; };
 		E1069000000000000000A003 /* HermesSkillsClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1069000000000000000A004 /* HermesSkillsClientTests.swift */; };
+		E1112000000000000000A003 /* HermesWorkspaceFileClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1112000000000000000A004 /* HermesWorkspaceFileClientTests.swift */; };
 		E1075000000000000000A009 /* HermesUpdateClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1075000000000000000A00A /* HermesUpdateClientTests.swift */; };
 		E1075000000000000000A007 /* HermesUpdateMachineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1075000000000000000A008 /* HermesUpdateMachineTests.swift */; };
 		E1074000000000000000A003 /* HermesInsightsClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1074000000000000000A004 /* HermesInsightsClientTests.swift */; };
@@ -1215,6 +1217,7 @@
 		C8230A000000000000000004 /* HermesREST.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Hermes/HermesREST.swift"; sourceTree = "<group>"; };
 		E1043000000000000000A002 /* HermesKanbanClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Hermes/HermesKanbanClient.swift"; sourceTree = "<group>"; };
 		E1069000000000000000A002 /* HermesSkillsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Hermes/HermesSkillsClient.swift"; sourceTree = "<group>"; };
+		E1112000000000000000A002 /* HermesWorkspaceFileClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Hermes/HermesWorkspaceFileClient.swift"; sourceTree = "<group>"; };
 		E1075000000000000000A002 /* HermesUpdateClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Hermes/HermesUpdateClient.swift"; sourceTree = "<group>"; };
 		E1074000000000000000A002 /* HermesInsightsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Hermes/HermesInsightsClient.swift"; sourceTree = "<group>"; };
 		E1046000000000000000A002 /* HermesSessionPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Hermes/HermesSessionPage.swift"; sourceTree = "<group>"; };
@@ -1244,6 +1247,7 @@
 		E1040000000000000000A004 /* HermesCronClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesCronClientTests.swift; sourceTree = "<group>"; };
 		E1043000000000000000A004 /* HermesKanbanClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesKanbanClientTests.swift; sourceTree = "<group>"; };
 		E1069000000000000000A004 /* HermesSkillsClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesSkillsClientTests.swift; sourceTree = "<group>"; };
+		E1112000000000000000A004 /* HermesWorkspaceFileClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesWorkspaceFileClientTests.swift; sourceTree = "<group>"; };
 		E1075000000000000000A00A /* HermesUpdateClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesUpdateClientTests.swift; sourceTree = "<group>"; };
 		E1075000000000000000A008 /* HermesUpdateMachineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesUpdateMachineTests.swift; sourceTree = "<group>"; };
 		E1074000000000000000A004 /* HermesInsightsClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesInsightsClientTests.swift; sourceTree = "<group>"; };
@@ -1419,6 +1423,7 @@
 				E1040000000000000000A004 /* HermesCronClientTests.swift */,
 				E1043000000000000000A004 /* HermesKanbanClientTests.swift */,
 				E1069000000000000000A004 /* HermesSkillsClientTests.swift */,
+				E1112000000000000000A004 /* HermesWorkspaceFileClientTests.swift */,
 				E1075000000000000000A00A /* HermesUpdateClientTests.swift */,
 				E1075000000000000000A008 /* HermesUpdateMachineTests.swift */,
 				E1074000000000000000A004 /* HermesInsightsClientTests.swift */,
@@ -1664,6 +1669,7 @@
 				C8230A000000000000000004 /* HermesREST.swift */,
 				E1043000000000000000A002 /* HermesKanbanClient.swift */,
 				E1069000000000000000A002 /* HermesSkillsClient.swift */,
+				E1112000000000000000A002 /* HermesWorkspaceFileClient.swift */,
 				E1075000000000000000A002 /* HermesUpdateClient.swift */,
 				E1074000000000000000A002 /* HermesInsightsClient.swift */,
 				E1046000000000000000A002 /* HermesSessionPage.swift */,
@@ -2484,6 +2490,7 @@
 				C8230A000000000000000003 /* HermesREST.swift in Sources */,
 				E1043000000000000000A001 /* HermesKanbanClient.swift in Sources */,
 				E1069000000000000000A001 /* HermesSkillsClient.swift in Sources */,
+				E1112000000000000000A001 /* HermesWorkspaceFileClient.swift in Sources */,
 				E1075000000000000000A001 /* HermesUpdateClient.swift in Sources */,
 				E1074000000000000000A001 /* HermesInsightsClient.swift in Sources */,
 				E1046000000000000000A001 /* HermesSessionPage.swift in Sources */,
@@ -2860,6 +2867,7 @@
 				E1040000000000000000A003 /* HermesCronClientTests.swift in Sources */,
 				E1043000000000000000A003 /* HermesKanbanClientTests.swift in Sources */,
 				E1069000000000000000A003 /* HermesSkillsClientTests.swift in Sources */,
+				E1112000000000000000A003 /* HermesWorkspaceFileClientTests.swift in Sources */,
 				E1075000000000000000A009 /* HermesUpdateClientTests.swift in Sources */,
 				E1075000000000000000A007 /* HermesUpdateMachineTests.swift in Sources */,
 				E1074000000000000000A003 /* HermesInsightsClientTests.swift in Sources */,

@@ -152,4 +152,12 @@ struct FileResponse: Decodable, Equatable {
     let size: Int?
     let lines: Int?
     let error: String?
+    /// A Hermes host's file that is not text (#1112), which has no text preview. webui never sets it.
+    var isBinary = false
+    /// A Hermes host's file past its 512 KiB preview, which `content` holds. webui never sets it.
+    var isTruncated = false
+
+    enum CodingKeys: String, CodingKey {
+        case content, path, name, language, size, lines, error
+    }
 }

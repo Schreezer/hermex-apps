@@ -8,7 +8,8 @@ import Foundation
 @MainActor final class BotClient: BotTransport {
     private let gateway: HermesGateway
     let consumerID: Int
-    private var http: HermesConnection { gateway.http }
+    /// The connection this client signs in and downloads through, shared with its Bot screens.
+    var http: HermesConnection { gateway.http }
     /// Bumped by `close()`, `connect()` and a lost socket, so this screen's late HTTP
     /// results are dropped.
     private var attempt = 0

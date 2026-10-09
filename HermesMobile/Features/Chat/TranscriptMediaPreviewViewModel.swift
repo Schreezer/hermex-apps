@@ -1,10 +1,13 @@
 import Foundation
 import SwiftUI
 
+/// One transcript media reference's preview and export. A MEDIA path downloads through the
+/// chat's `WorkspaceFileClient`, from webui's `/api/media` or a Hermes host (#1112); nil is a
+/// chat without a session to read from. A remote URL downloads through `apiClient`.
 @MainActor
 @Observable
 final class TranscriptMediaPreviewViewModel {
-    private let sessionID: String?
+    private let files: (any WorkspaceFileClient)?
     private let reference: TranscriptMediaReference
     private let apiClient: APIClient
     private var didLoad = false
@@ -22,11 +25,11 @@ final class TranscriptMediaPreviewViewModel {
 
     init(
         server: URL,
-        sessionID: String?,
+        files: (any WorkspaceFileClient)?,
         reference: TranscriptMediaReference,
         apiClient: APIClient? = nil
     ) {
-        self.sessionID = sessionID
+        self.files = files
         self.reference = reference
         self.apiClient = apiClient ?? APIClient(baseURL: server)
     }
@@ -142,16 +145,13 @@ final class TranscriptMediaPreviewViewModel {
     }
 
     private func transcriptMediaData() async throws -> Data {
-        try await apiClient.transcriptMediaData(for: reference, sessionID: resolvedSessionID)
-    }
-
-    private var resolvedSessionID: String? {
-        guard let sessionID = sessionID?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !sessionID.isEmpty
-        else {
-            return nil
+        switch reference.source {
+        case let .localPath(path):
+            guard let files else { throw TranscriptMediaPreviewError.missingSessionID }
+            return try await files.mediaData(path: path)
+        case let .remoteURL(url):
+            return try await apiClient.remoteTranscriptMediaData(from: url)
         }
-        return sessionID
     }
 
     func cleanupTemporaryFiles() {

@@ -1449,6 +1449,39 @@ path is the folder joined with names from its own listing, never the listing's `
 the host resolves (`/private/var/…` on a Mac). A name that is empty, `.`, `..` or holds a
 separator is refused before any request.
 
+## Workspace on a Hermes host
+
+A Hermes chat's Files, its previews, transcript file links and MEDIA references read the host
+through `HermesWorkspaceFileClient` (#1112), the `WorkspaceFileClient` beside webui's
+`WebUIWorkspaceFileClient`. The chat's workspace (`HermesWorkspaceContext`) is its server,
+Profile, stored key, and the `cwd` and `terminal_backend` the latest `session.info` or attach
+reports; a Move to Project changes `cwd`, and the open tree drops everything and lists the new
+folder. Files and file links show only on a `local` backend, where the folder is on the host the
+dashboard reads; any other backend, or no `session.info` yet, hides them. The composer's `@`
+panel (#1113) and Git (#1114) read the same context.
+
+- **Fence.** `/api/fs/*` reads any host path a signed-in client names, so the fence is the
+  client's rule, not a security boundary. Paths across the seam are workspace-relative; only the
+  Hermes client composes `cwd + "/" + path`, and it refuses an absolute path, a `..` component
+  or a path with nothing past the root before any request. A child's path is its folder's plus
+  its `name`, never the listing's `path`, which the host resolves (`/private/var/…` on a Mac) and
+  so may not start with the `cwd` that was asked for. Downloads (`/api/fs/download`) send the
+  relative path with `profile` and `session_id`, so the host anchors them to the session's own
+  folder; a MEDIA path goes as the reply wrote it. Rows, previews and errors show relative paths,
+  and a refusal whose `detail` names a path reads as the generic failure.
+- **ENOENT-as-200.** `GET /api/fs/list` answers a folder it can't read with 200
+  `{entries: [], error}`: `ENOENT` or `ENOTDIR` on the root is the folder-missing state, on a
+  subfolder that row's failure; `EACCES` is a permission failure. None reports an error.
+- **Hidden folders.** The listing hides `.git .hg .svn .cache .next .turbo .venv __pycache__
+  build dist node_modules target venv` and credential files, as Desktop does; the app adds no
+  workaround. A symlinked folder lists as a file, so it is not browsable and opens the preview's
+  "can't preview" state.
+- **Reads.** `GET /api/fs/read-text` is the first 512 KiB: `binary` shows No Preview, and
+  `truncated` shows the start with a "Preview truncated" note, without a line count, and exports
+  the downloaded file rather than the preview. Every download stops at 25 MB.
+- **Caches.** The tree's expansion is kept per server, Profile, stored key and `cwd`, so two
+  chats in one folder never share it.
+
 ## Memory on a Hermes host
 
 The Memory screen runs on a Hermes host through `HermesMemoryClient` (#1073), the

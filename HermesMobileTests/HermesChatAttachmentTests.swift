@@ -376,6 +376,36 @@ import UIKit
         XCTAssertNotEqual(base, namespace(Self.connection, "work"))
     }
 
+    // MARK: Workspace (#1112)
+
+    /// The chat's workspace is its Profile, stored key, and the folder and terminal backend
+    /// `session.info` names; a later report moving the folder moves it, and its files download
+    /// on the chat's connection by their relative path. Before any report names a folder there is none.
+    func testTheWorkspaceFollowsSessionInfoAndReadsOnTheChatsConnection() async throws {
+        let chat = await openChat()
+        XCTAssertNil(chat.model.hermesWorkspace, "no session.info has named a folder")
+
+        chat.receive(event(1, "session.info", ["cwd": .string("/work/app"), "terminal_backend": .string("local")]))
+        XCTAssertEqual(chat.model.hermesWorkspace, HermesWorkspaceContext(
+            server: URL(string: "https://hermes.example")!, profile: "default", storedKey: "tip",
+            cwd: "/work/app", terminalBackend: "local"))
+
+        chat.receive(event(2, "session.info", ["cwd": .string("/work/moved"), "terminal_backend": .string("docker")]))
+        XCTAssertEqual(chat.model.hermesWorkspace?.cwd, "/work/moved")
+        XCTAssertEqual(chat.model.hermesWorkspace?.isLocal, false)
+
+        var query: [URLQueryItem]?
+        _ = HermesHostFixture.configuration { request in
+            guard request.url?.path == "/api/fs/download" else { return nil }
+            query = request.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.queryItems }
+            return .json(200, .string("bytes"))
+        }
+        _ = try await XCTUnwrap(chat.model.hermesWorkspaceFiles).rawFileData(path: "out/report.pdf")
+        XCTAssertEqual(query, [URLQueryItem(name: "path", value: "out/report.pdf"),
+                               URLQueryItem(name: "profile", value: "default"),
+                               URLQueryItem(name: "session_id", value: "tip")])
+    }
+
     // MARK: Fixture
 
     private static let connection = BotConnection(id: UUID(), name: "Mac", address: URL(string: "http://hermes.local:9120")!,

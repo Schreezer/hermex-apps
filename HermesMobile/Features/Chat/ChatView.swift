@@ -750,7 +750,7 @@ struct ChatView: View {
     private func transcriptMediaImageLightbox(for item: TranscriptMediaPreviewItem) -> some View {
         TranscriptMediaImageLightbox(
             server: server,
-            sessionID: transcriptMediaSessionID,
+            files: transcriptMediaFiles,
             item: item,
             onAPIError: onAPIError
         )
@@ -759,7 +759,7 @@ struct ChatView: View {
     private func transcriptMediaPreviewView(for item: TranscriptMediaPreviewItem) -> some View {
         TranscriptMediaPreviewView(
             server: server,
-            sessionID: transcriptMediaSessionID,
+            files: transcriptMediaFiles,
             item: item,
             onAPIError: onAPIError
         )
@@ -767,9 +767,11 @@ struct ChatView: View {
 
     /// A chat link that names a workspace file opens the source viewer at its line; every
     /// other link returns nil for `transcriptLinks` to open. The viewer's own error state
-    /// covers a path the server no longer has, so the tap never waits on a fetch.
+    /// covers a path the server no longer has, so the tap never waits on a fetch. A Hermes
+    /// chat's root is its folder, only while Files can read it.
     private func handleTranscriptLink(_ url: URL) -> OpenURLAction.Result? {
-        guard let reference = FileReference.parse(url.absoluteString, workspaceRoot: session.workspace) else {
+        let root = isHermesSession ? browsableHermesWorkspace?.cwd : session.workspace
+        guard let reference = FileReference.parse(url.absoluteString, workspaceRoot: root) else {
             return nil
         }
         openedFileReference = reference
@@ -779,8 +781,7 @@ struct ChatView: View {
     private func fileReferenceSheet(for reference: FileReference) -> some View {
         NavigationStack {
             FilePreviewView(
-                session: session,
-                server: server,
+                files: workspaceFiles,
                 entry: WorkspaceEntry(name: reference.name, path: reference.path),
                 initialLine: reference.line,
                 onAPIError: onAPIError
@@ -800,6 +801,26 @@ struct ChatView: View {
             return nil
         }
         return sessionID
+    }
+
+    /// A Hermes chat's folder while Files can read it: `session.info` has named it, on a
+    /// `local` terminal backend (#1112). Nil on any other backend, and before.
+    private var browsableHermesWorkspace: HermesWorkspaceContext? {
+        viewModel.hermesWorkspace.flatMap { $0.isLocal ? $0 : nil }
+    }
+
+    /// What Files, its previews and transcript file links read: the webui session's
+    /// workspace, or a Hermes chat's folder while `browsableHermesWorkspace` has one.
+    private var workspaceFiles: (any WorkspaceFileClient)? {
+        guard isHermesSession else { return WebUIWorkspaceFileClient(session: session, server: server) }
+        return browsableHermesWorkspace == nil ? nil : viewModel.hermesWorkspaceFiles
+    }
+
+    /// What a MEDIA reference downloads through: the webui session, or a Hermes chat's host,
+    /// whatever its backend, since the host resolves the path against the session.
+    private var transcriptMediaFiles: (any WorkspaceFileClient)? {
+        if isHermesSession { return viewModel.hermesWorkspaceFiles }
+        return transcriptMediaSessionID.map { WebUIWorkspaceFileClient(sessionID: $0, workspace: session.workspace, server: server) }
     }
 
     private var transcriptMediaCacheNamespace: String {
@@ -1024,10 +1045,10 @@ struct ChatView: View {
                             }
                         }
 
-                        if showsFilesButton, !isHermesSession {
+                        if showsFilesButton, !isHermesSession || browsableHermesWorkspace != nil {
                             ChatToolbarActionSlot {
                                 NavigationLink {
-                                    FileBrowserView(session: session, server: server, onAPIError: onAPIError)
+                                    FileBrowserView(files: workspaceFiles, onAPIError: onAPIError)
                                 } label: {
                                     Label("Files", systemImage: "folder")
                                 }
