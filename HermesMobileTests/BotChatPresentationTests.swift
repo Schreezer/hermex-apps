@@ -1948,7 +1948,7 @@ private struct SessionChatPresentationFixture: View {
             supportedReasoningEfforts: nil, supportsReasoningEffort: false, showsReasoningControl: false,
             isUpdatingConfiguration: false, pendingAttachments: [], isUploadingAttachment: false,
             attachmentUploadCount: 0, attachmentUploadGeneration: 0, isSendingVoiceNote: false,
-            autoStartsVoiceInput: false, apiClient: nil, sessionID: nil, chipFilePaths: [],
+            autoStartsVoiceInput: false, apiClient: nil, sessionID: nil, searchFilePaths: nil, chipFilePaths: [],
             filePathSearch: paths, uploadAttachmentErrorMessage: nil, steerFailure: nil,
             streamingSendBehavior: .steer, onSend: {}, onSendWithBehavior: { _ in },
             onSendVoiceNote: { _, _ in }, onCancel: {}, onSelectModel: { _ in },

@@ -550,6 +550,7 @@ struct ChatView: View {
             autoStartsVoiceInput: autoStartsVoiceInput,
             apiClient: viewModel.client,
             sessionID: session.sessionId,
+            searchFilePaths: viewModel.offersFilePathSearch ? { await viewModel.searchFilePaths($0) } : nil,
             chipFilePaths: viewModel.fileChipPaths,
             filePathSearch: viewModel.filePathSearch,
             uploadAttachmentErrorMessage: viewModel.uploadAttachmentErrorMessage,

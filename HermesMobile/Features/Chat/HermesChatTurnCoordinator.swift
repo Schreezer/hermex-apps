@@ -37,6 +37,9 @@ import SwiftData
     func hermesBackgroundDidChange(_ task: HermesBackgroundTask)
     /// The session's goal, as its control snapshot reports it; nil once cleared (#1013).
     func hermesGoalDidChange(_ goal: SubmittedGoal?)
+    /// `session.info` named another working folder or terminal backend, such as after a Move to
+    /// Project: every `@path` found in the old one no longer means anything (#1113).
+    func hermesWorkspaceDidChange()
 }
 
 /// A Hermes session the main chat opens: the server, its saved connection and the target.
@@ -431,6 +434,17 @@ struct HermesChatTranscript: Equatable {
     var workspaceFiles: HermesWorkspaceFileClient? {
         guard let workspace, let http = (engine.wire as? BotClient)?.http else { return nil }
         return HermesWorkspaceFileClient(context: workspace, http: http)
+    }
+
+    /// One query's rows for the composer's `@` panel and its `@path` check (#1113), as Bot Chat
+    /// asks them: `complete.path` on the attached runtime, which completes against the
+    /// session's working folder and ranks and caps its own rows. Throws `.stale` while
+    /// detached, and for a reply that lands after a reattach.
+    func completeFilePaths(_ query: String) async throws -> [ComposerFilePathSearch.Match] {
+        guard engine.connectionState == .connected, let runtime = engine.runtime else { throw BotFailure.stale }
+        let reply = try await engine.request(.completePath(word: BotFilePathSearch.word(for: query), sessionID: runtime,
+                                                           profile: engine.target.profile), attempt: engine.generation)
+        return BotFilePathSearch.matches(from: reply)
     }
 
     /// Keys this session's thumbnails in the process-wide `TranscriptImageCache`: its
@@ -889,10 +903,13 @@ struct HermesChatTranscript: Equatable {
 
     /// Keeps the working folder, terminal backend and model a `session.info` or a snapshot's
     /// `info` reports. An unchanged folder or backend is not written again, so a repeated
-    /// report invalidates nothing.
+    /// report invalidates nothing; a changed one tells the chat, which drops its `@path` chips.
     private func noteInfo(_ info: BotJSON) {
-        if let folder = Self.words(info["cwd"]), folder != cwd { cwd = folder }
-        if let backend = Self.words(info["terminal_backend"]), backend != terminalBackend { terminalBackend = backend }
+        let folder = Self.words(info["cwd"]).flatMap { $0 == cwd ? nil : $0 }
+        let backend = Self.words(info["terminal_backend"]).flatMap { $0 == terminalBackend ? nil : $0 }
+        if let folder { cwd = folder }
+        if let backend { terminalBackend = backend }
+        if folder != nil || backend != nil { delegate?.hermesWorkspaceDidChange() }
         if let model = Self.words(info["model"]), let provider = Self.words(info["provider"]) {
             reportedModel = HermesCall.Model(id: model, provider: provider)
         }

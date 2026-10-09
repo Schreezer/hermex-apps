@@ -208,9 +208,11 @@ struct MessageComposerView: View {
     /// the "New Chat with Voice" App Intent (#338). Defaults to false for normal composers.
     let autoStartsVoiceInput: Bool
     let apiClient: APIClient?
-    /// This chat's server-side session, which the `@` panel lists workspace
-    /// files for. Nil before the session exists, which keeps the panel closed.
+    /// This chat's server-side session. Nil before the session exists.
     let sessionID: String?
+    /// Loads one query's rows into `filePathSearch`: the chat's workspace listing, or a
+    /// Hermes chat's `complete.path` (#1113). Nil keeps the `@` panel closed.
+    let searchFilePaths: ((String) async -> Void)?
     /// The workspace files already picked in this chat. The editor draws their
     /// `@path` references as chips; the view model owns the set so the sent
     /// transcript can draw the same ones.
@@ -356,24 +358,15 @@ struct MessageComposerView: View {
 
     /// The `@…` the caret is sitting in, or `nil` when there is none.
     ///
-    /// Needs a session to list, since every path the panel offers comes from
-    /// that session's workspace.
+    /// Needs `searchFilePaths`, since every path the panel offers comes from
+    /// the chat's own workspace.
     private var fileTrigger: ComposerFileTrigger? {
-        guard !isReadOnly, apiClient != nil, fileReferenceSessionID != nil else { return nil }
+        guard !isReadOnly, searchFilePaths != nil else { return nil }
         return ComposerFileTrigger.detect(in: draftMessage, selection: composerSelection.range)
     }
 
     private var showsFileAutocomplete: Bool {
         fileTrigger != nil
-    }
-
-    private var fileReferenceSessionID: String? {
-        guard let sessionID = sessionID?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !sessionID.isEmpty
-        else {
-            return nil
-        }
-        return sessionID
     }
 
     /// What the panel filters on, or `nil` when it should be closed.
@@ -540,13 +533,11 @@ struct MessageComposerView: View {
                 }
 
                 Group {
-                    if let fileTrigger, let sessionID = fileReferenceSessionID, let apiClient {
+                    if let fileTrigger, let searchFilePaths {
                         FilePathAutocompleteView(
                             query: fileTrigger.query,
                             search: filePathSearch,
-                            load: { query in
-                                await filePathSearch.search(query, sessionID: sessionID, apiClient: apiClient)
-                            },
+                            load: searchFilePaths,
                             onSelect: applyFileCompletion
                         )
                         .padding(.horizontal)

@@ -317,6 +317,92 @@ import Observation
         XCTAssertNil(chat.model.queuedMessagesReceipt)
     }
 
+    // MARK: `@` file references (#1113)
+
+    /// The `@` panel opens only once `session.info` names a folder on a `local` backend, then
+    /// asks `complete.path` on the attached runtime under the session's Profile; a picked folder
+    /// asks again for what is inside it.
+    func testTheAtPanelCompletesPathsOnTheCurrentRuntimeOfALocalBackend() async {
+        let chat = await openChat()
+        XCTAssertFalse(chat.model.offersFilePathSearch, "no session.info has named a folder")
+        chat.receive(event(1, "session.info", ["cwd": .string("/work/app"), "terminal_backend": .string("docker")]))
+        XCTAssertFalse(chat.model.offersFilePathSearch, "a docker folder is not on the host")
+        await chat.model.searchFilePaths("Sou")
+        XCTAssertEqual(chat.writes("complete.path").count, 0, "a closed panel asks nothing")
+
+        chat.receive(event(2, "session.info", ["terminal_backend": .string("local")]))
+        XCTAssertTrue(chat.model.offersFilePathSearch)
+        chat.host.next("complete.path", .init(result: completions(["Sources/": "dir", "Sourcery.yml": ""])))
+        await chat.model.searchFilePaths("Sou")
+        XCTAssertEqual(chat.model.filePathSearch.matches.map(\.path), ["Sources", "Sourcery.yml"])
+        XCTAssertEqual(chat.model.filePathSearch.matches.map(\.isDirectory), [true, false])
+
+        chat.host.next("complete.path", .init(result: completions(["Sources/App.swift": ""])))
+        await chat.model.searchFilePaths("Sources/")
+        XCTAssertEqual(chat.model.filePathSearch.matches.map(\.path), ["Sources/App.swift"])
+        XCTAssertEqual(chat.writes("complete.path"), [
+            ["word": .string("Sou"), "session_id": .string("runtime"), "profile": .string("default")],
+            ["word": .string("Sources/"), "session_id": .string("runtime"), "profile": .string("default")]
+        ])
+    }
+
+    /// Rows for a folder the chat has moved away from never show: a reply that lands after
+    /// `session.info` names a new folder is dropped.
+    func testAPanelReplyThatLandsAfterTheFolderMovedIsDropped() async {
+        let chat = await openChat()
+        chat.receive(event(1, "session.info", ["cwd": .string("/work/app"), "terminal_backend": .string("local")]))
+        chat.host.next("complete.path", .init(result: completions(["Sources/": "dir"]), before: [
+            event(2, "session.info", ["cwd": .string("/work/moved")])
+        ]))
+
+        await chat.model.searchFilePaths("Sou")
+
+        XCTAssertEqual(chat.writes("complete.path").count, 1)
+        XCTAssertEqual(chat.model.filePathSearch.matches, [])
+        XCTAssertFalse(chat.model.filePathSearch.isLoading)
+    }
+
+    /// An `@path` in the draft or a sent message becomes a chip when `complete.path` lists it;
+    /// one it doesn't list stays text and is not asked about again.
+    func testAnAtPathBecomesAChipOnlyWhenTheHostListsIt() async {
+        let chat = await openChat()
+        chat.receive(event(1, "session.info", ["cwd": .string("/work/app"), "terminal_backend": .string("local")]))
+        chat.host.next("complete.path", .init(result: completions(["Sources/App.swift": "", "Sources/App.swift.orig": ""])))
+        chat.host.next("complete.path", .init(result: completions([:])))
+
+        await chat.model.loadFileChipReferences(draft: "read @Sources/App.swift and @nope.md")
+
+        XCTAssertEqual(chat.model.fileChipPaths, ["Sources/App.swift"])
+        XCTAssertEqual(chat.writes("complete.path").map { $0["word"]?.text }, ["Sources/App.swift", "nope.md"])
+        await chat.model.loadFileChipReferences(draft: "read @Sources/App.swift and @nope.md")
+        XCTAssertEqual(chat.writes("complete.path").count, 2, "a settled candidate is not asked again")
+    }
+
+    /// Move to Project takes the old folder's chips with it, and a confirmation that lands after
+    /// the move counts for nothing: the next pass asks again in the new folder.
+    func testAFolderMoveDropsChipsAndAStaleConfirmation() async {
+        let chat = await openChat()
+        chat.receive(event(1, "session.info", ["cwd": .string("/work/app"), "terminal_backend": .string("local")]))
+        chat.model.recordFileChipReference("picked.md")
+        XCTAssertEqual(chat.model.fileChipPaths, ["picked.md"])
+
+        let revision = chat.model.fileChipScopeRevision
+        chat.receive(event(2, "session.info", ["cwd": .string("/work/moved")]))
+        XCTAssertEqual(chat.model.fileChipPaths, [])
+        XCTAssertNotEqual(chat.model.fileChipScopeRevision, revision, "the chat re-checks in the new folder")
+
+        chat.host.next("complete.path", .init(result: completions(["README.md": ""]), before: [
+            event(3, "session.info", ["cwd": .string("/work/elsewhere")])
+        ]))
+        await chat.model.loadFileChipReferences(draft: "see @README.md")
+        XCTAssertEqual(chat.model.fileChipPaths, [], "the reply described the folder before the move")
+
+        chat.host.next("complete.path", .init(result: completions(["README.md": ""])))
+        await chat.model.loadFileChipReferences(draft: "see @README.md")
+        XCTAssertEqual(chat.model.fileChipPaths, ["README.md"])
+        XCTAssertEqual(chat.writes("complete.path").count, 2)
+    }
+
     // MARK: Reattach
 
     /// Back from the background mid-turn: the replay carries what was missed, the reply
@@ -514,6 +600,13 @@ import Observation
     private func event(_ seq: Int, _ type: String, _ payload: [String: BotJSON] = [:], runtime: String = "runtime") -> BotJSON {
         .object(["session_id": .string(runtime), "seq": .number(Double(seq)), "type": .string(type),
                  "payload": .object(payload)])
+    }
+
+    /// A `complete.path` reply listing `rows`, path to `meta`, in order.
+    private func completions(_ rows: KeyValuePairs<String, String>) -> BotJSON {
+        .object(["items": .array(rows.map { text, meta in
+            .object(["text": .string(text), "display": .string(text), "meta": .string(meta)])
+        })])
     }
 
     /// A saved prompt as a transcript page carries it (#1047).
