@@ -140,7 +140,7 @@ private struct ContainerAppScreen: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ContainerAppHost(app: app, onExit: close) { error in
+            ContainerAppHost(hostApp: app, onExit: close) { error in
                 errorMessage = error.localizedDescription
             }
             .ignoresSafeArea()
@@ -170,20 +170,4 @@ private struct ContainerAppScreen: View {
     }
 }
 
-private struct ContainerAppHost: UIViewControllerRepresentable {
-    let app: LCHostApp
-    let onExit: () -> Void
-    let onError: (Error) -> Void
-
-    func makeUIViewController(context: Context) -> UIViewController {
-        do {
-            return try LCHostRuntime.makeAppViewController(for: app, onExit: onExit, onError: onError)
-        } catch {
-            DispatchQueue.main.async { onError(error) }
-            return UIViewController()
-        }
-    }
-
-    func updateUIViewController(_ controller: UIViewController, context: Context) {}
-}
 #endif

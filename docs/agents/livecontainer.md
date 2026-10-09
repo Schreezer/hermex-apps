@@ -28,6 +28,21 @@ how it is wired, what we changed in the vendored copy, and how to update it.
   public `App` class (from its intent definition) that shadows `SwiftUI.App`, so
   keep the import out of files that use SwiftUI's `App`.
 
+## Apps surfaces
+
+- `HermexHomeTabs` puts the webui home in a Chats / Apps tab bar. Any pending
+  chat route (deep link, share, intent, push, new chat) switches to Chats.
+  Hermes-server (Bot Mode) homes keep their own bar for now.
+- `AppsView` (library), `AppDetailView` (app page) and `RunningAppView` (a guest
+  under a thin Hermex bar) follow screens 05–07 of the design, with tokens in
+  `HermexAppsTheme`. Fonts fall back to the system face until Space Grotesk and
+  IBM Plex are bundled.
+- `AppLibrary` joins `AppRegistry` with the container's installs. The registry
+  is hard-coded until the Mac-side registry (build step 6): Debug builds list the
+  design's sample apps plus the container test app; Release lists installs only.
+- "Ask for a change" and "Ask Hermes for a new app" open a new chat with a draft
+  through `NewChatRequest.initialDraft`.
+
 ## Build settings that matter
 
 - `Config/LiveContainerHost.xcconfig` is included at the end of

@@ -15,6 +15,13 @@ public struct LCHostApp: Identifiable, Hashable, Sendable {
     public let displayName: String
     public let version: String
     public let relativeBundlePath: String
+
+    public init(bundleIdentifier: String, displayName: String, version: String, relativeBundlePath: String) {
+        self.bundleIdentifier = bundleIdentifier
+        self.displayName = displayName
+        self.version = version
+        self.relativeBundlePath = relativeBundlePath
+    }
 }
 
 public struct LCHostError: LocalizedError {

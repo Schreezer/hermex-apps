@@ -1531,6 +1531,7 @@ struct SessionListView: View {
         requestedNewChat = nil
         selectDestination(
             PendingNewChatRoute(
+                initialDraft: request.initialDraft,
                 autoStartsVoiceInput: request.autoStartsVoiceInput,
                 profileName: request.profileName
             )
@@ -1750,11 +1751,14 @@ struct NewChatRequest: Equatable {
     /// When set, the new session is created pinned to this profile; nil uses the server's
     /// active profile (the plain "+" / "New Chat" behavior).
     let profileName: String?
+    /// Text the composer starts with, e.g. "Change Lift Log: " from an app's page.
+    let initialDraft: String
 
-    init(autoStartsVoiceInput: Bool = false, profileName: String? = nil) {
+    init(autoStartsVoiceInput: Bool = false, profileName: String? = nil, initialDraft: String = "") {
         self.id = UUID()
         self.autoStartsVoiceInput = autoStartsVoiceInput
         self.profileName = profileName
+        self.initialDraft = initialDraft
     }
 }
 

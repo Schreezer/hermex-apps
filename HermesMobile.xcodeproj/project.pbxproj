@@ -636,6 +636,16 @@
 		F8241360673F955E8E10A6DD /* TweakLoader.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = CA2BD2386331C2F66B2731FD /* TweakLoader.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		E7A1C0DE0000000000000012 /* ContainerAppsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000011 /* ContainerAppsView.swift */; };
 		E7A1C0DE0000000000000014 /* ContainerRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000013 /* ContainerRuntime.swift */; };
+		E7A1C0DE0000000000000101 /* HermexAppsTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000100 /* HermexAppsTheme.swift */; };
+		E7A1C0DE0000000000000103 /* HermexApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000102 /* HermexApp.swift */; };
+		E7A1C0DE0000000000000105 /* AppLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000104 /* AppLibrary.swift */; };
+		E7A1C0DE0000000000000107 /* AppRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000106 /* AppRegistry.swift */; };
+		E7A1C0DE0000000000000109 /* RunningAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000108 /* RunningAppView.swift */; };
+		E7A1C0DE000000000000010B /* AppsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE000000000000010A /* AppsView.swift */; };
+		E7A1C0DE000000000000010D /* AppDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE000000000000010C /* AppDetailView.swift */; };
+		E7A1C0DE000000000000010F /* HermexHomeTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE000000000000010E /* HermexHomeTabs.swift */; };
+		E7A1C0DE0000000000000202 /* AppLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000201 /* AppLibraryTests.swift */; };
+		E7A1C0DE0000000000000203 /* LiveContainerSwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44587289F74E5F3DA822AB74 /* LiveContainerSwiftUI.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1420,6 +1430,15 @@
 		586A97D74DAAD9AA44F53BC1 /* LiveContainer.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = LiveContainer.xcodeproj; path = LiveContainer/LiveContainer.xcodeproj; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000011 /* ContainerAppsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/ContainerAppsView.swift; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000013 /* ContainerRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/ContainerRuntime.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000100 /* HermexAppsTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/HermexAppsTheme.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000102 /* HermexApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/HermexApp.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000104 /* AppLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/AppLibrary.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000106 /* AppRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/AppRegistry.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000108 /* RunningAppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/RunningAppView.swift; sourceTree = "<group>"; };
+		E7A1C0DE000000000000010A /* AppsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/AppsView.swift; sourceTree = "<group>"; };
+		E7A1C0DE000000000000010C /* AppDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/AppDetailView.swift; sourceTree = "<group>"; };
+		E7A1C0DE000000000000010E /* HermexHomeTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/HermexHomeTabs.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000201 /* AppLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLibraryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1441,6 +1460,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7A1C0DE0000000000000203 /* LiveContainerSwiftUI.framework in Frameworks */,
 				C21300000000000000000007 /* MarkdownUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1532,6 +1552,7 @@
 		1A2B3C4D5E6F700000000034 /* HermesMobileTests */ = {
 			isa = PBXGroup;
 			children = (
+				E7A1C0DE0000000000000201 /* AppLibraryTests.swift */,
 				B48200000000000000000007 /* BotProfileEditorTests.swift */,
 				B48200000000000000000035 /* BotLifecycleTests.swift */,
 				B48200000000000000000023 /* BotFaceMotionTests.swift */,
@@ -1861,6 +1882,14 @@
 		1A2B3C4D5E6F7000000000C3 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				E7A1C0DE000000000000010E /* HermexHomeTabs.swift */,
+				E7A1C0DE000000000000010C /* AppDetailView.swift */,
+				E7A1C0DE000000000000010A /* AppsView.swift */,
+				E7A1C0DE0000000000000108 /* RunningAppView.swift */,
+				E7A1C0DE0000000000000106 /* AppRegistry.swift */,
+				E7A1C0DE0000000000000104 /* AppLibrary.swift */,
+				E7A1C0DE0000000000000102 /* HermexApp.swift */,
+				E7A1C0DE0000000000000100 /* HermexAppsTheme.swift */,
 				E7A1C0DE0000000000000013 /* ContainerRuntime.swift */,
 				E7A1C0DE0000000000000011 /* ContainerAppsView.swift */,
 				B48200000000000000000001 /* BotProfileAppearance.swift */,
@@ -2694,6 +2723,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7A1C0DE000000000000010F /* HermexHomeTabs.swift in Sources */,
+				E7A1C0DE000000000000010D /* AppDetailView.swift in Sources */,
+				E7A1C0DE000000000000010B /* AppsView.swift in Sources */,
+				E7A1C0DE0000000000000109 /* RunningAppView.swift in Sources */,
+				E7A1C0DE0000000000000107 /* AppRegistry.swift in Sources */,
+				E7A1C0DE0000000000000105 /* AppLibrary.swift in Sources */,
+				E7A1C0DE0000000000000103 /* HermexApp.swift in Sources */,
+				E7A1C0DE0000000000000101 /* HermexAppsTheme.swift in Sources */,
 				E7A1C0DE0000000000000014 /* ContainerRuntime.swift in Sources */,
 				E7A1C0DE0000000000000012 /* ContainerAppsView.swift in Sources */,
 				A4790000000000000000E001 /* PushEnvironment.swift in Sources */,
@@ -3086,6 +3123,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7A1C0DE0000000000000202 /* AppLibraryTests.swift in Sources */,
 				A4790000000000000000E006 /* PushRegistrationTests.swift in Sources */,
 				B48200000000000000000008 /* BotProfileEditorTests.swift in Sources */,
 				B48200000000000000000036 /* BotLifecycleTests.swift in Sources */,

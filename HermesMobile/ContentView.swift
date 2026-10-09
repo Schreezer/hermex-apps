@@ -101,18 +101,22 @@ struct ContentView: View {
         case .loggedOut(let server):
             OnboardingView(authManager: authManager, savedServer: server)
         case .loggedIn(let server):
-            SessionListView(
-                authManager: authManager,
-                server: server,
-                pendingSharedImport: $pendingSharedImport,
-                didRoutePendingSharedImport: consumePendingSharedImport,
-                hasWaitingSharedImport: hasWaitingSharedImport,
-                openNextSharedImport: openNextSharedImport,
-                pendingDeepLinkedSessionID: $pendingDeepLinkedSessionID,
-                requestedNewChat: $pendingNewChatRequest,
-                pendingBotDestination: $pendingBotDestination,
-                pendingWebuiPush: $pendingWebuiPush
-            )
+            HermexHomeTabs(chatsRequested: chatRouteIsPending) { draft in
+                pendingNewChatRequest = NewChatRequest(initialDraft: draft)
+            } chats: {
+                SessionListView(
+                    authManager: authManager,
+                    server: server,
+                    pendingSharedImport: $pendingSharedImport,
+                    didRoutePendingSharedImport: consumePendingSharedImport,
+                    hasWaitingSharedImport: hasWaitingSharedImport,
+                    openNextSharedImport: openNextSharedImport,
+                    pendingDeepLinkedSessionID: $pendingDeepLinkedSessionID,
+                    requestedNewChat: $pendingNewChatRequest,
+                    pendingBotDestination: $pendingBotDestination,
+                    pendingWebuiPush: $pendingWebuiPush
+                )
+            }
             // Switching the active server keeps us in `.loggedIn`, so without a
             // per-server identity SwiftUI would reuse the same SessionListView (and
             // its server-bound view model), leaving stale sessions/chat on screen.
@@ -120,6 +124,12 @@ struct ContentView: View {
             // against the newly active server (#17).
             .id(server)
         }
+    }
+
+    /// Something is routing into the session list, so the home shows Chats.
+    private var chatRouteIsPending: Bool {
+        pendingSharedImport != nil || pendingDeepLinkedSessionID != nil || pendingWebuiPush != nil
+            || pendingBotDestination != nil || pendingNewChatRequest != nil
     }
 
     private func handleOpenURL(_ url: URL) {
