@@ -203,23 +203,6 @@ enum AgentRunLiveActivityPrivacy {
     static let showsResponseExcerptsKey = "agentRunLiveActivity.showsResponseExcerpts"
 }
 
-/// User-facing switch for the streamed-text fade-in (issues #213/#234).
-/// Defaults to on; Reduce Motion disables the animation regardless.
-enum StreamedTextAnimationSettings {
-    static let isEnabledKey = "chatTranscript.streamedTextAnimationEnabled"
-
-    /// The fade-window start ordinal the renderer should use. `Int.max`
-    /// routes every block into the solid head, so no fade renderer (and no
-    /// frame clock) is ever attached — disabling the animation entirely.
-    static func effectiveFirstFadeOrdinal(
-        _ firstFadeOrdinal: Int,
-        reduceMotion: Bool,
-        isEnabled: Bool
-    ) -> Int {
-        (reduceMotion || !isEnabled) ? Int.max : firstFadeOrdinal
-    }
-}
-
 enum ChatTranscriptDisplaySettings {
     static let showsThinkingAndToolCardsKey = "chatTranscript.showsThinkingAndToolCards"
     static let thinkingCardsStartExpandedKey = "chatTranscript.thinkingCardsStartExpanded"

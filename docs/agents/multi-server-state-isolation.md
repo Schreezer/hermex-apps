@@ -130,7 +130,6 @@ per-server:
 - Session-row display toggles (`SessionRowDisplaySettings`: message count, workspace, cron — the CLI toggle moved to per-server storage in #19, see the per-server table above)
 - Sidebar disclosure state (`sessionSidebar.profilesAreExpanded` / `projectsAreExpanded`)
 - Chat transcript display toggles (`ChatTranscriptDisplaySettings`: thinking/tool cards, attachment paths, timestamps, code-block wrap)
-- Streamed-text animation (`StreamedTextAnimationSettings`)
 - Streaming send behavior (`StreamingSendBehavior`)
 - Bot quick replies (`BotQuickReplyStore`): the user's own text, the same chips for every server, connection and Profile
 - Adaptive Glass preference (`adaptiveGlass.isEnabled`)

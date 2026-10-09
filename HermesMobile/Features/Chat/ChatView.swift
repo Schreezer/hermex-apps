@@ -3503,14 +3503,10 @@ struct ChatView: View {
             // taller server transcript replacing the cached one doesn't animate a jump
             // (#289). Evaluated at fire time so it's robust to onChange ordering.
             let isCacheFirstSnapWindow = cacheFirstSnapUntil.map { Date() < $0 } ?? false
-            if animated, !isCacheFirstSnapWindow {
-                // While streaming, follow with the short cadence-synced curve so
-                // back-to-back triggers retarget smoothly; otherwise keep the
-                // regular follow-scroll feel.
-                let animation = viewModel.activeStreamID != nil
-                    ? ChatMotion.streamingFollow(reduceMotion: reduceMotion)
-                    : ChatMotion.scrollToLatest(reduceMotion: reduceMotion)
-                withAnimation(animation) {
+            // Following a live stream snaps too: updates land every ~48 ms, so
+            // an animated follow is cut off by the next one and never settles.
+            if animated, !isCacheFirstSnapWindow, viewModel.activeStreamID == nil {
+                withAnimation(ChatMotion.scrollToLatest(reduceMotion: reduceMotion)) {
                     proxy.scrollTo(targetID, anchor: anchor)
                 }
             } else {

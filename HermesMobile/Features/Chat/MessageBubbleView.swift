@@ -13,7 +13,6 @@ struct MessageBubbleView: View {
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The skills this chat can draw as chips, published by `ChatView`.
     @Environment(\.composerChipCatalog) private var composerChipCatalog
     @Environment(\.chatWorkspaceRoot) private var chatWorkspaceRoot
@@ -222,13 +221,6 @@ struct MessageBubbleView: View {
             linkPreview(linkPreviewURL)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // While this row is the active streaming message, animate its height
-        // growth at the same curve as the bottom-follow scroll so the streaming
-        // edge stays visually stationary instead of stepping per word flush.
-        .animation(
-            isStreaming ? ChatMotion.streamingFollow(reduceMotion: reduceMotion) : nil,
-            value: messageText
-        )
     }
 
     @ViewBuilder

@@ -303,30 +303,6 @@ final class ChatViewModelStreamingPaceTests: XCTestCase {
     }
 }
 
-/// Issue #214: the streaming bottom-follow scroll and active-row growth share
-/// one short cadence-synced animation, disabled entirely under Reduce Motion.
-final class ChatStreamingMotionTests: XCTestCase {
-    func testStreamingFollowUsesShortEaseOut() {
-        XCTAssertEqual(
-            ChatMotion.streamingFollow(reduceMotion: false),
-            .easeOut(duration: 0.15)
-        )
-    }
-
-    func testStreamingFollowIsDisabledUnderReduceMotion() {
-        XCTAssertNil(ChatMotion.streamingFollow(reduceMotion: true))
-    }
-
-    func testStreamingFollowIsShorterThanRegularFollowScroll() {
-        // The streaming curve must stay snappier than the regular follow scroll
-        // so per-flush retargeting keeps up with the word reveal cadence.
-        XCTAssertNotEqual(
-            ChatMotion.streamingFollow(reduceMotion: false),
-            ChatMotion.scrollToLatest(reduceMotion: false)
-        )
-    }
-}
-
 private final class PacingSpySSEStreamingClient: SSEStreamingClient {
     private(set) var lastEventID: String?
     private var onEvent: (@MainActor (SSEEvent) -> Void)?

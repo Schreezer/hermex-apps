@@ -94,7 +94,6 @@ struct SettingsView: View {
     @AppStorage(ChatTranscriptDisplaySettings.showsResponseSpeedKey) private var showsResponseSpeed = false
     @AppStorage(ChatTranscriptDisplaySettings.wrapsCodeBlockLinesKey) private var wrapsCodeBlockLines = false
     @AppStorage(ChatTranscriptDisplaySettings.rtlChatLayoutEnabledKey) private var rtlChatLayoutEnabled = ChatTranscriptDisplaySettings.rtlChatLayoutDefaultEnabled
-    @AppStorage(StreamedTextAnimationSettings.isEnabledKey) private var isStreamedTextAnimationEnabled = true
     @AppStorage(HeaderLogoColor.storageKey) private var headerLogoColorHex = HeaderLogoColor.defaultHex
     @AppStorage(PrimaryActionTintSettings.isEnabledKey) private var tintsPrimaryActions = false
     @AppStorage(SessionIdentitySettings.displayNameKey) private var identityDisplayName = ""
@@ -333,16 +332,6 @@ struct SettingsView: View {
                     )
 
                     SettingsFootnote(String(localized: "Collapses a finished turn's thinking, tool calls, and interim replies behind one row that shows how long it took. Tap the row to expand it."))
-
-                    SettingsDivider()
-
-                    SettingsToggleRow(
-                        title: String(localized: "Streamed Text Animation"),
-                        systemImage: "sparkles",
-                        isOn: $isStreamedTextAnimationEnabled
-                    )
-
-                    SettingsFootnote(String(localized: "Fades words in as a response streams. Turn off to show text instantly."))
 
                     SettingsDivider()
 
@@ -720,20 +709,13 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
-                        StreamingLabView()
-                    } label: {
-                        SettingsAccessoryRow(title: "Streaming Lab", systemImage: "waveform.path.ecg")
-                    }
-                    .buttonStyle(.plain)
-
-                    NavigationLink {
                         ProviderGlyphGalleryView()
                     } label: {
                         SettingsAccessoryRow(title: "Provider Glyphs", systemImage: "square.grid.2x2")
                     }
                     .buttonStyle(.plain)
 
-                    SettingsFootnote("Debug builds only. Replay a canned reply and tune the streamed-text fade feel live.")
+                    SettingsFootnote("Debug builds only.")
                 }
                 #endif
 

@@ -424,13 +424,7 @@
 		C21200000000000000000001 /* StreamingWordDrain.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21200000000000000000002 /* StreamingWordDrain.swift */; };
 		C21200000000000000000003 /* StreamingWordDrainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21200000000000000000004 /* StreamingWordDrainTests.swift */; };
 		C21200000000000000000005 /* ChatViewModelStreamingPaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21200000000000000000006 /* ChatViewModelStreamingPaceTests.swift */; };
-		C21300000000000000000001 /* StreamingTextFade.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21300000000000000000002 /* StreamingTextFade.swift */; };
-		C21300000000000000000003 /* StreamingTextFadeRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21300000000000000000004 /* StreamingTextFadeRenderer.swift */; };
-		C21300000000000000000005 /* StreamingTextFadeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21300000000000000000006 /* StreamingTextFadeTests.swift */; };
-		C23400000000000000000001 /* StreamingLabReplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23400000000000000000002 /* StreamingLabReplay.swift */; };
-		C23400000000000000000003 /* StreamingLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23400000000000000000004 /* StreamingLabView.swift */; };
 		C23400000000000000000011 /* ProviderGlyphGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23400000000000000000012 /* ProviderGlyphGalleryView.swift */; };
-		C23400000000000000000005 /* StreamingLabReplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23400000000000000000006 /* StreamingLabReplayTests.swift */; };
 		C14900000000000000000001 /* Kanban.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14900000000000000000002 /* Kanban.swift */; };
 		C14900000000000000000003 /* APIClient+Kanban.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14900000000000000000004 /* APIClient+Kanban.swift */; };
 		C14900000000000000000005 /* KanbanFeatureState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14900000000000000000006 /* KanbanFeatureState.swift */; };
@@ -1131,13 +1125,7 @@
 		C21200000000000000000002 /* StreamingWordDrain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingWordDrain.swift; sourceTree = "<group>"; };
 		C21200000000000000000004 /* StreamingWordDrainTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingWordDrainTests.swift; sourceTree = "<group>"; };
 		C21200000000000000000006 /* ChatViewModelStreamingPaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModelStreamingPaceTests.swift; sourceTree = "<group>"; };
-		C21300000000000000000002 /* StreamingTextFade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingTextFade.swift; sourceTree = "<group>"; };
-		C21300000000000000000004 /* StreamingTextFadeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingTextFadeRenderer.swift; sourceTree = "<group>"; };
-		C21300000000000000000006 /* StreamingTextFadeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingTextFadeTests.swift; sourceTree = "<group>"; };
-		C23400000000000000000002 /* StreamingLabReplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingLabReplay.swift; sourceTree = "<group>"; };
-		C23400000000000000000004 /* StreamingLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingLabView.swift; sourceTree = "<group>"; };
 		C23400000000000000000012 /* ProviderGlyphGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderGlyphGalleryView.swift; sourceTree = "<group>"; };
-		C23400000000000000000006 /* StreamingLabReplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingLabReplayTests.swift; sourceTree = "<group>"; };
 		C14900000000000000000002 /* Kanban.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Kanban.swift; sourceTree = "<group>"; };
 		C14900000000000000000004 /* APIClient+Kanban.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APIClient+Kanban.swift"; sourceTree = "<group>"; };
 		C14900000000000000000006 /* KanbanFeatureState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KanbanFeatureState.swift; sourceTree = "<group>"; };
@@ -1531,8 +1519,6 @@
 				C22300000000000000000004 /* CompressionAnchorResolverTests.swift */,
 				C21200000000000000000004 /* StreamingWordDrainTests.swift */,
 				C21200000000000000000006 /* ChatViewModelStreamingPaceTests.swift */,
-				C21300000000000000000006 /* StreamingTextFadeTests.swift */,
-				C23400000000000000000006 /* StreamingLabReplayTests.swift */,
 				C1490000000000000000000A /* APIClientKanbanTests.swift */,
 				C1490000000000000000000C /* KanbanFeatureStateTests.swift */,
 				C15100000000000000000004 /* KanbanEventStreamClientTests.swift */,
@@ -1941,8 +1927,6 @@
 				B5A220000000000000000004 /* MarkerMessageCardView.swift */,
 				C22300000000000000000002 /* CompressionAnchorResolver.swift */,
 				C21200000000000000000002 /* StreamingWordDrain.swift */,
-				C21300000000000000000002 /* StreamingTextFade.swift */,
-				C21300000000000000000004 /* StreamingTextFadeRenderer.swift */,
 				454454454454454454454401 /* ResponseTextSelection.swift */,
 				454454454454454454454411 /* ResponseSelectionInput.swift */,
 				D1FF76200000000000000001 /* MarkdownDiffCodeBlock.swift */,
@@ -2068,8 +2052,6 @@
 				1A2B3C4D5E6F70000000115 /* DefaultModelPickerView.swift */,
 				103200000000000000000001 /* DefaultProfilePickerView.swift */,
 				1A2B3C4D5E6F70000000111 /* ArchivedSessionsView.swift */,
-				C23400000000000000000002 /* StreamingLabReplay.swift */,
-				C23400000000000000000004 /* StreamingLabView.swift */,
 				C23400000000000000000012 /* ProviderGlyphGalleryView.swift */,
 				1A2B3C4D5E6F70000000113 /* ArchivedSessionsViewModel.swift */,
 				19C1150000000000000000A2 /* CliSessionsSyncModel.swift */,
@@ -2645,8 +2627,6 @@
 				1A2B3C4D5E6F70000000114 /* DefaultModelPickerView.swift in Sources */,
 				103200000000000000000002 /* DefaultProfilePickerView.swift in Sources */,
 				1A2B3C4D5E6F70000000110 /* ArchivedSessionsView.swift in Sources */,
-				C23400000000000000000001 /* StreamingLabReplay.swift in Sources */,
-				C23400000000000000000003 /* StreamingLabView.swift in Sources */,
 				C23400000000000000000011 /* ProviderGlyphGalleryView.swift in Sources */,
 				1A2B3C4D5E6F70000000112 /* ArchivedSessionsViewModel.swift in Sources */,
 				19C1150000000000000000A1 /* CliSessionsSyncModel.swift in Sources */,
@@ -2720,8 +2700,6 @@
 				B5A220000000000000000003 /* MarkerMessageCardView.swift in Sources */,
 				C22300000000000000000001 /* CompressionAnchorResolver.swift in Sources */,
 				C21200000000000000000001 /* StreamingWordDrain.swift in Sources */,
-				C21300000000000000000001 /* StreamingTextFade.swift in Sources */,
-				C21300000000000000000003 /* StreamingTextFadeRenderer.swift in Sources */,
 				1A2B3C4D5E6F7000000000E4 /* FileBrowserView.swift in Sources */,
 				1A2B3C4D5E6F7000000000E6 /* FileBrowserViewModel.swift in Sources */,
 				1F16000000000000000000B1 /* FileTree.swift in Sources */,
@@ -2968,8 +2946,6 @@
 				C22300000000000000000003 /* CompressionAnchorResolverTests.swift in Sources */,
 				C21200000000000000000003 /* StreamingWordDrainTests.swift in Sources */,
 				C21200000000000000000005 /* ChatViewModelStreamingPaceTests.swift in Sources */,
-				C21300000000000000000005 /* StreamingTextFadeTests.swift in Sources */,
-				C23400000000000000000005 /* StreamingLabReplayTests.swift in Sources */,
 				C14900000000000000000009 /* APIClientKanbanTests.swift in Sources */,
 				C1490000000000000000000B /* KanbanFeatureStateTests.swift in Sources */,
 				C15100000000000000000003 /* KanbanEventStreamClientTests.swift in Sources */,
