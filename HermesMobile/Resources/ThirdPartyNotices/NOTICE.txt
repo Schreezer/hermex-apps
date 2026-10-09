@@ -21,3 +21,9 @@ with the iOS app.
   See swift-cmark-COPYING.txt.
 - Lucide icons
   See LucideIcons-LICENSE.txt.
+- LiveContainer (embedded app runtime, AGPL-3.0)
+  See LiveContainer-LICENSE.txt. Source: https://github.com/LiveContainer/LiveContainer
+- Space Grotesk (SIL Open Font License 1.1)
+  See SpaceGrotesk-OFL.txt.
+- IBM Plex Sans and IBM Plex Mono (SIL Open Font License 1.1)
+  See IBMPlex-OFL.txt.

@@ -646,6 +646,7 @@
 		E7A1C0DE000000000000010F /* HermexHomeTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE000000000000010E /* HermexHomeTabs.swift */; };
 		E7A1C0DE0000000000000202 /* AppLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000201 /* AppLibraryTests.swift */; };
 		E7A1C0DE0000000000000203 /* LiveContainerSwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44587289F74E5F3DA822AB74 /* LiveContainerSwiftUI.framework */; };
+		E7A1C0DE0000000000000302 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000301 /* Fonts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1439,6 +1440,7 @@
 		E7A1C0DE000000000000010C /* AppDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/AppDetailView.swift; sourceTree = "<group>"; };
 		E7A1C0DE000000000000010E /* HermexHomeTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/HermexHomeTabs.swift; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000201 /* AppLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLibraryTests.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000301 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1545,6 +1547,7 @@
 				B5A100000000000000000015 /* HermesMobile.entitlements */,
 				1A2B3C4D5E6F70000000301 /* PrivacyInfo.xcprivacy */,
 				488791F556304AD2AC59BC5D /* ThirdPartyNotices */,
+				E7A1C0DE0000000000000301 /* Fonts */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -2689,6 +2692,7 @@
 				10CA110C0DE000000000B004 /* AppShortcuts.xcstrings in Resources */,
 				1A2B3C4D5E6F70000000300 /* PrivacyInfo.xcprivacy in Resources */,
 				9E2A653D968A4ACDA19A8142 /* ThirdPartyNotices in Resources */,
+				E7A1C0DE0000000000000302 /* Fonts in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
