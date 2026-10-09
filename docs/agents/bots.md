@@ -1506,7 +1506,10 @@ panel (#1113) and Git (#1114) read the same context.
   `git/review/diff` all take `path=<root>`, since their paths are root-relative. Rows are
   `review/list`'s (uncapped, sorted) joined by path with `status.files`' flags, which the host
   caps at 200; a row past the cap has no `unstaged` flag and takes untracked and conflicted from
-  its status letter, so the list is never marked truncated. A diff over 512 KiB shows webui's
+  its status letter, so the list is never marked truncated. A staged row past the cap may also
+  have worktree edits, so its diff is `git/file-diff` (the whole change against HEAD) instead of
+  the staged half. Tool paths are relative to the `cwd` or absolute; the turn-changes card maps
+  them to root-relative row paths before joining. A diff over 512 KiB shows webui's
   too-large notice, and a `Binary files … differ` patch the binary one. A failed git call is 400
   `{detail}`, git's stderr: it reads as "Repository status unavailable", and neither it nor the
   root is shown or logged. Every write (Stage Changes, Commit, Push, Fetch, Pull, the branch

@@ -177,6 +177,8 @@ enum HermesREST: Equatable, Sendable {
     case gitChanges(repository: String)
     /// `{diff}`: one file's staged or worktree diff, an all-add one for an untracked file.
     case gitDiff(repository: String, file: String, staged: Bool)
+    /// `{diff}`: one file's whole change against HEAD, staged and worktree edits together.
+    case gitFileDiff(repository: String, file: String)
     /// Replaces or creates the file at a host path, atomically; `{ok, path, byteSize}`. It never
     /// creates folders: a missing parent is 400 "Parent directory does not exist".
     case fsWriteText(path: String, content: String)
@@ -426,6 +428,9 @@ enum HermesREST: Equatable, Sendable {
                 URLQueryItem(name: "path", value: repository), URLQueryItem(name: "file", value: file),
                 URLQueryItem(name: "scope", value: "uncommitted"), URLQueryItem(name: "staged", value: staged ? "true" : "false")
             ])
+        case .gitFileDiff(let repository, let file):
+            return try Self.pathQuery(base, "api/git/file-diff", [URLQueryItem(name: "path", value: repository),
+                                                                  URLQueryItem(name: "file", value: file)])
         case .fsWriteText(let path, let content):
             return try Self.send("POST", base.appendingPathComponent("api/fs/write-text"),
                                  ["path": .string(path), "content": .string(content)])

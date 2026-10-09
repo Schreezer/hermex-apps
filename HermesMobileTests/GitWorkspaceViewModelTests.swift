@@ -457,31 +457,73 @@ final class GitWorkspaceViewModelTests: APIClientTestCase {
         XCTAssertEqual(HermesGitHost.requests.filter { $0.url?.path == "/api/git/branches" }.count, 0)
     }
 
-    /// The host caps `status.files` at 200 but lists every change in `review/list`, so a 201st
-    /// change is still a row: it has no flags, its kind comes from its status letter, and it opens
-    /// its staged diff. The list is whole, so it isn't marked truncated.
+    /// The host caps `status.files` at 200 but lists every change in `review/list`, so a change
+    /// past the cap is still a row, and the list isn't marked truncated. Such a row takes untracked
+    /// and conflicted from its status letter. Whether a staged one also has worktree edits is
+    /// unknown, so it opens its whole change against HEAD, never only the staged half.
     @MainActor
-    func testHermesRowsPastTheStatusCapStayListed() async throws {
-        let paths = (0...200).map { String(format: "f%03d.txt", $0) }
+    func testHermesRowsPastTheStatusCapStayListedWithTheirWholeChange() async throws {
+        let capped = (0..<200).map { String(format: "f%03d.txt", $0) }
+        let wholeChange = "diff --git a/both.swift b/both.swift\n@@ -1 +1,2 @@\n-old\n+staged\n+worktree\n"
         let git = HermesGitHost.client { request in
-            HermesGitHost.repositoryReply(request,
-                                          rows: paths.map { ($0, 1, 0, $0 == "f200.txt" ? "A" : "M", $0 == "f200.txt") },
-                                          flags: paths.map { ($0, $0 == "f200.txt", $0 != "f200.txt", false, false) })
+            if request.url?.path == "/api/git/file-diff" { return .json(200, .object(["diff": .string(wholeChange)])) }
+            return HermesGitHost.repositoryReply(request,
+                rows: capped.map { ($0, 1, 0, "M", false) } + [("both.swift", 2, 1, "M", true), ("conflict.txt", 4, 0, "U", false),
+                                                               ("notes.txt", 2, 0, "?", false)],
+                flags: capped.map { ($0, false, true, false, false) } + [("both.swift", true, true, false, false),
+                                                                         ("conflict.txt", false, false, false, true),
+                                                                         ("notes.txt", false, true, true, false)])
         }
         let changes = GitWorkspaceViewModel(git: git)
 
         await changes.load()
 
         let status = try XCTUnwrap(changes.status)
-        XCTAssertEqual(status.trackedFiles.count, 201)
-        XCTAssertEqual(status.changedCount, 201)
+        XCTAssertEqual(status.trackedFiles.count, 203)
+        XCTAssertEqual(status.changedCount, 203)
         XCTAssertEqual(status.truncated, false)
-        let last = try XCTUnwrap(status.trackedFiles.last)
-        XCTAssertEqual(last.displayPath, "f200.txt")
-        XCTAssertNil(last.unstaged)
-        XCTAssertEqual(last.changeKind, .added)
-        XCTAssertEqual(last.preferredDiffKind, "staged")
-        XCTAssertEqual(status.trackedFiles.first?.unstaged, true)
+        let pastCap = Array(status.trackedFiles.suffix(3))
+        XCTAssertEqual(pastCap.map(\.displayPath), ["both.swift", "conflict.txt", "notes.txt"])
+        XCTAssertEqual(pastCap.map(\.changeKind), [.modified, .conflict, .untracked])
+        XCTAssertEqual(pastCap.map(\.conflict), [false, true, false])
+        XCTAssertEqual(pastCap.map(\.untracked), [false, false, true])
+
+        let diff = try await git.diff(for: pastCap[0])
+
+        XCTAssertEqual(HermesGitHost.requests.last.map(HermesGitHost.describe),
+                       "/api/git/file-diff path=\(HermesGitHost.repository) file=both.swift")
+        XCTAssertEqual(DiffHunk.parse(diff?.diff ?? "").map(\.additions), [2])
+    }
+
+    /// Hermes tools name files relative to the chat's folder or absolutely, while rows are relative
+    /// to the repository root. From `Sources`, the turn's `App.swift` is `Sources/App.swift`, not
+    /// the root's `App.swift`, and an absolute path picks its own row, so the card opens that diff.
+    @MainActor
+    func testAHermesTurnCardFindsSubfolderFilesByTheirRepositoryPath() async throws {
+        let git = HermesGitHost.client(cwd: HermesGitHost.repository + "/Sources") { request in
+            HermesGitHost.repositoryReply(request, rows: [("App.swift", 9, 9, "M", false), ("Sources/App.swift", 3, 1, "M", false),
+                                                          ("Sources/Model.swift", 2, 0, "M", false)],
+                                          flags: [("App.swift", false, true, false, false),
+                                                  ("Sources/App.swift", false, true, false, false),
+                                                  ("Sources/Model.swift", false, true, false, false)])
+        }
+        let availability = GitWorkspaceAvailabilityViewModel(
+            session: SessionSummary(), server: URL(string: "https://webui.example")!, git: git
+        )
+        await availability.load()
+
+        let summary = TurnFileChangeAggregator.summarize(toolCalls: [
+            ToolCall(name: "write_file", preview: nil, args: ["path": .string("App.swift")]),
+            ToolCall(name: "patch", preview: nil, args: ["path": .string("./App.swift")]),
+            ToolCall(name: "patch", preview: nil, args: ["path": .string(HermesGitHost.repository + "/Sources/Model.swift")])
+        ], status: availability.status, rowPath: git.rowPath(forToolPath:))
+        let diff = try await git.diff(for: try XCTUnwrap(summary.diffFiles.first))
+
+        XCTAssertEqual(summary.changes.map(\.path), ["Sources/App.swift", "Sources/Model.swift"])
+        XCTAssertEqual(summary.changes.map(\.additions), [3, 2])
+        XCTAssertEqual(summary.diffFiles.map(\.displayPath), ["Sources/App.swift", "Sources/Model.swift"])
+        XCTAssertEqual(HermesGitHost.requests.last.map { HermesGitHost.query($0, "file") }, "Sources/App.swift")
+        XCTAssertEqual(diff?.diff, HermesGitHost.diffText(for: "Sources/App.swift"))
     }
 
     /// A folder outside a repository hides Git without asking for its status, and the Changes

@@ -46,20 +46,44 @@ import Foundation
     }
 
     /// The row's staged diff when it has only staged changes, else its worktree diff, which the
-    /// host synthesizes as all-add for an untracked file. Over `maximumDiffBytes` it is too large.
+    /// host synthesizes as all-add for an untracked file. A staged row past the status cap may also
+    /// have worktree edits, so it reads its whole change against HEAD. Over `maximumDiffBytes` it
+    /// is too large.
     func diff(for file: GitFile) async throws -> GitDiff? {
         guard let root = try await repositoryRoot() else { return nil }
-        let staged = file.preferredDiffKind == "staged"
-        let reply = try Self.json(try await send(.gitDiff(repository: root, file: file.displayPath, staged: staged)))
-        let text = reply["diff"].text ?? ""
+        let path = file.displayPath
+        let wholeChange = file.staged == true && file.unstaged == nil
+        let kind = wholeChange ? nil : file.preferredDiffKind
+        let request: HermesREST = wholeChange ? .gitFileDiff(repository: root, file: path)
+            : .gitDiff(repository: root, file: path, staged: kind == "staged")
+        let text = try Self.json(try await send(request))["diff"].text ?? ""
         let tooLarge = text.utf8.count > Self.maximumDiffBytes
-        return GitDiff(path: file.displayPath, kind: file.preferredDiffKind, binary: Self.isBinary(text),
+        return GitDiff(path: path, kind: kind, binary: Self.isBinary(text),
                        tooLarge: tooLarge, additions: nil, deletions: nil, diff: tooLarge ? nil : text)
+    }
+
+    /// A turn's tool path as its row's root-relative path: Hermes tools name files relative to the
+    /// chat's folder or absolutely. Left as named until the root is known, or when it lies outside.
+    func rowPath(forToolPath path: String) -> String {
+        guard let root else { return path }
+        return Self.rowPath(path, folder: context.cwd, root: root)
+    }
+
+    /// `rowPath(forToolPath:)` for a chat working in `folder` inside the repository at `root`.
+    nonisolated static func rowPath(_ path: String, folder: String, root: String) -> String {
+        let rootPrefix = root.hasSuffix("/") ? root : root + "/"
+        if path.hasPrefix(rootPrefix) { return String(path.dropFirst(rootPrefix.count)) }
+        guard !path.hasPrefix("/") else { return path }
+        let folderPrefix = folder.hasSuffix("/") ? folder : folder + "/"
+        if folderPrefix == rootPrefix { return path }
+        guard folderPrefix.hasPrefix(rootPrefix) else { return path }
+        return String(folderPrefix.dropFirst(rootPrefix.count)) + path
     }
 
     /// `git/status` and `review/list` as one `GitStatus`. Rows are `review/list`'s, which lists
     /// every change; `status.files` stops at 200 and adds the flags a row lacks. A row past it has
-    /// no `unstaged` flag and takes untracked and conflicted from its status letter (`?`, `U`).
+    /// no `unstaged` flag (unknown, not clean) and takes untracked and conflicted from its status
+    /// letter (`?`, `U`).
     /// The list is whole, so it is never `truncated`; `changed` is the host's full count.
     nonisolated static func status(summary: BotJSON, changes: BotJSON) -> GitStatus {
         guard summary.fields != nil else { return notARepository }

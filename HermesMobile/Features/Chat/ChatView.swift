@@ -1400,9 +1400,11 @@ struct ChatView: View {
             isStreaming: viewModel.activeStreamID != nil,
             latestMessageRole: latestTranscriptMessageRole
         ) else { return nil }
+        let git = gitAvailabilityViewModel.git
         let summary = TurnFileChangeAggregator.summarize(
             toolCalls: viewModel.latestTurnToolCalls,
-            status: gitAvailabilityViewModel.status
+            status: gitAvailabilityViewModel.status,
+            rowPath: { git?.rowPath(forToolPath: $0) ?? $0 }
         )
         return summary.hasChanges ? summary : nil
     }

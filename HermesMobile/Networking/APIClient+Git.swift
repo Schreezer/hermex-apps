@@ -9,8 +9,15 @@ protocol GitDataClient: Sendable {
     func info() async throws -> GitInfo?
     /// Every changed file; `isGit == false` outside a repository.
     func status() async throws -> GitStatus?
-    /// One changed file's diff, of the kind `GitFile.preferredDiffKind` names.
+    /// One changed file's diff, of the kind `GitFile.preferredDiffKind` names where it is known.
     func diff(for file: GitFile) async throws -> GitDiff?
+    /// The row path a turn's tool names a file by, for the turn-changes card's join.
+    @MainActor func rowPath(forToolPath path: String) -> String
+}
+
+extension GitDataClient {
+    /// webui's rows are relative to the chat's workspace, as its tools name files.
+    @MainActor func rowPath(forToolPath path: String) -> String { path }
 }
 
 /// `GitDataClient` over webui's session-scoped Git routes.
