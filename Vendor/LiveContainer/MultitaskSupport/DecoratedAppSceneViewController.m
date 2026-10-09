@@ -11,13 +11,17 @@
 static int hook_return_2(void) {
     return 2;
 }
-__attribute__((constructor))
-void UIKitFixesInit(void) {
-    // Fix _UIPrototypingMenuSlider not continually updating its value on iOS 17+
-    Class _UIFluidSliderInteraction = objc_getClass("_UIFluidSliderInteraction");
-    if(_UIFluidSliderInteraction) {
-        method_setImplementation(class_getInstanceMethod(_UIFluidSliderInteraction, @selector(_state)), (IMP)hook_return_2);
-    }
+// Applied when the first decorated window is created rather than at load time,
+// so a host app that embeds this framework keeps stock slider behavior.
+static void UIKitFixesInit(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        // Fix _UIPrototypingMenuSlider not continually updating its value on iOS 17+
+        Class _UIFluidSliderInteraction = objc_getClass("_UIFluidSliderInteraction");
+        if(_UIFluidSliderInteraction) {
+            method_setImplementation(class_getInstanceMethod(_UIFluidSliderInteraction, @selector(_state)), (IMP)hook_return_2);
+        }
+    });
 }
 
 @interface DecoratedAppSceneViewController()
@@ -32,6 +36,7 @@ void UIKitFixesInit(void) {
 
 @implementation DecoratedAppSceneViewController
 - (instancetype)initWindowName:(NSString*)windowName bundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID rootVC:(UIViewController*)rootVC {
+    UIKitFixesInit();
     self = [super initWithNibName:nil bundle:nil];
     _scaleRatio = 1.0;
     _isMaximized = [NSUserDefaults.lcUserDefaults boolForKey:@"LCLaunchMultitaskMaximized"];

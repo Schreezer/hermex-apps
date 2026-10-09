@@ -1,0 +1,7 @@
+// Included at the end of Vendor/LiveContainer/xcconfigs/Global.xcconfig when
+// LiveContainer is built as part of Hermex. Embedded extensions must use a
+// bundle ID prefixed by the app's, so LiveProcess becomes
+// $(APP_BUNDLE_IDENTIFIER).LiveProcess.
+#include "Shared.xcconfig"
+
+LIVECONTAINER_BUNDLE_IDENTIFIER = $(APP_BUNDLE_IDENTIFIER)

@@ -1,0 +1,6 @@
+[submodule "Vendor/LiveContainer/litehook"]
+	path = Vendor/LiveContainer/litehook
+	url = https://github.com/LiveContainer/litehook
+[submodule "Vendor/LiveContainer/OpenSSL"]
+	path = Vendor/LiveContainer/OpenSSL
+	url = https://github.com/krzyzanowskim/OpenSSL

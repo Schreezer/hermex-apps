@@ -630,6 +630,18 @@ static void exceptionHandler(NSException *exception) {
     }
 }
 
+void LCHostInitialize(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        lcMainBundle = [NSBundle mainBundle];
+        lcUserDefaults = NSUserDefaults.standardUserDefaults;
+        lcSharedDefaults = [[NSUserDefaults alloc] initWithSuiteName: [LCSharedUtils appGroupID]];
+        lcAppUrlScheme = NSBundle.mainBundle.infoDictionary[@"CFBundleURLTypes"][0][@"CFBundleURLSchemes"][0];
+        lcAppGroupPath = [[NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[LCSharedUtils appGroupID]] path];
+        setenv("LC_HOME_PATH", getenv("HOME"), 0);
+    });
+}
+
 int LiveContainerMain(int argc, char *argv[]) {
     lcMainBundle = [NSBundle mainBundle];
     lcUserDefaults = NSUserDefaults.standardUserDefaults;

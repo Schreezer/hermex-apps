@@ -18,3 +18,8 @@
 + (NSArray<NSString*>*)lcUnorderedUrlSchemes;
 + (NSArray<NSString*>*)lcUrlSchemes;
 @end
+
+// For a host app that embeds LiveContainer's frameworks but keeps its own
+// main() and UI. Sets the globals LiveContainerMain sets before it shows the
+// launcher. Guests then run only in the LiveProcess extension.
+void LCHostInitialize(void);
