@@ -379,6 +379,23 @@ import SwiftUI
         XCTAssertEqual(chat.writes("complete.path").count, 2, "a settled candidate is not asked again")
     }
 
+    /// A failed lookup leaves only its own candidate open: a sibling the host confirmed in the
+    /// same folder still becomes a chip and is not asked about again.
+    func testAFailedLookupKeepsItsSiblingsAnswers() async {
+        let chat = await openChat()
+        chat.receive(event(1, "session.info", ["cwd": .string("/work/app"), "terminal_backend": .string("local")]))
+        chat.host.next("complete.path", .init(result: completions(["a.md": ""])))
+        chat.host.next("complete.path", .init(error: -32000))
+
+        await chat.model.loadFileChipReferences(draft: "see @a.md and @b.md")
+
+        XCTAssertEqual(chat.model.fileChipPaths, ["a.md"])
+        chat.host.next("complete.path", .init(result: completions(["b.md": ""])))
+        await chat.model.loadFileChipReferences(draft: "see @a.md and @b.md")
+        XCTAssertEqual(chat.writes("complete.path").map { $0["word"]?.text }, ["a.md", "b.md", "b.md"])
+        XCTAssertEqual(chat.model.fileChipPaths, ["a.md", "b.md"])
+    }
+
     /// Move to Project takes the old folder's chips with it, and a confirmation that lands after
     /// the move counts for nothing: the next pass asks again in the new folder.
     func testAFolderMoveDropsChipsAndAStaleConfirmation() async {

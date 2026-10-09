@@ -4506,14 +4506,14 @@ final class ChatViewModel {
                 // and nothing it has learned since may be applied.
                 guard !Task.isCancelled else { return }
                 guard let wanted = wantedByDirectory[directory] else { continue }
-                guard let listed = try? await listedFileReferences(wanted, in: directory, source: source) else {
+                guard let lookup = try? await listedFileReferences(wanted, in: directory, source: source) else {
                     // A listing that failed is not an answer. Leaving the
                     // candidates open is what lets the next pass retry them.
                     continue
                 }
 
-                confirmed.formUnion(listed)
-                settled.formUnion(wanted)
+                confirmed.formUnion(lookup.listed)
+                settled.formUnion(lookup.answered)
             }
 
             // Checked between batches as well as at the end: the chat can be
@@ -4526,29 +4526,35 @@ final class ChatViewModel {
         }
     }
 
-    /// Which of `wanted`, all in `directory`, the source lists there.
+    /// Which of `wanted`, all in `directory`, the source lists there (`listed`), and which of
+    /// them it gave an answer for at all (`answered`).
     ///
-    /// A webui folder is listed once, through the cache the `@` panel fills. A Hermes chat asks
-    /// `complete.path` for each candidate's own path: the host lists the folder's entries that
-    /// start with the name, so a folder past its 30-row cap still confirms one.
+    /// A webui folder is listed once, through the cache the `@` panel fills, so it answers all
+    /// of `wanted` or throws. A Hermes chat asks `complete.path` for each candidate's own path:
+    /// the host lists the folder's entries that start with the name, so a folder past its
+    /// 30-row cap still confirms one. One candidate's failed lookup leaves only that candidate
+    /// unanswered; its siblings keep their answers.
     private func listedFileReferences(
         _ wanted: Set<String>,
         in directory: String,
         source: FileReferenceSource
-    ) async throws -> Set<String> {
+    ) async throws -> (listed: Set<String>, answered: Set<String>) {
         switch source {
         case .webui(let sessionID):
             let entries = try await filePathSearch.entries(in: directory, sessionID: sessionID, apiClient: client)
-            return wanted.intersection(entries.map(\.path))
+            return (wanted.intersection(entries.map(\.path)), wanted)
         case .hermes(let turn):
             var listed: Set<String> = []
+            var answered: Set<String> = []
             for candidate in wanted.sorted() {
                 guard !Task.isCancelled else { throw CancellationError() }
-                if try await turn.completeFilePaths(candidate).contains(where: { $0.path == candidate }) {
+                guard let entries = try? await turn.completeFilePaths(candidate) else { continue }
+                answered.insert(candidate)
+                if entries.contains(where: { $0.path == candidate }) {
                     listed.insert(candidate)
                 }
             }
-            return listed
+            return (listed, answered)
         }
     }
 
