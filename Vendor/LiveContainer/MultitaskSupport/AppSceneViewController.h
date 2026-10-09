@@ -33,6 +33,8 @@ API_AVAILABLE(ios(16.0))
 @property(nonatomic) _UIScenePresenter *presenter;
 @property(nonatomic) UIMutableApplicationSceneSettings *settings;
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate;
+/// `launchInfo` is merged into what LiveProcess receives, e.g. a host app's bridge endpoint.
+- (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID launchInfo:(NSDictionary*)launchInfo delegate:(id<AppSceneViewControllerDelegate>)delegate;
 - (void)setBackgroundNotificationEnabled:(bool)enabled;
 - (void)updateFrameWithSettingsBlock:(void (^)(UIMutableApplicationSceneSettings *settings))block;
 - (void)appTerminationCleanUp;

@@ -1,4 +1,5 @@
 import SwiftUI
+import HermexAppKit
 import LiveContainerSwiftUI
 
 /// Screen 07: a built app full screen in its own style under a thin Hermex
@@ -11,6 +12,11 @@ struct RunningAppView: View {
 
     @State private var launch = UUID()
     @State private var errorMessage: String?
+    /// The app's HermexAppKit connection; one per screen, reused across restarts.
+    @State private var bridge = GuestBridge()
+    #if DEBUG
+    @State private var isShowingBridgeInspector = false
+    #endif
 
     private typealias Theme = HermexAppsTheme
 
@@ -37,6 +43,11 @@ struct RunningAppView: View {
                     Menu {
                         Button(action: showDetails) { Label("App details", systemImage: "info.circle") }
                         Button { launch = UUID() } label: { Label("Restart app", systemImage: "arrow.clockwise") }
+                        #if DEBUG
+                        Button { isShowingBridgeInspector = true } label: {
+                            Label { Text(verbatim: "Bridge inspector") } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") }
+                        }
+                        #endif
                         Button(role: .destructive, action: close) { Label("Close app", systemImage: "xmark") }
                     } label: {
                         Image(systemName: "ellipsis")
@@ -51,7 +62,7 @@ struct RunningAppView: View {
             }
             .padding(.horizontal, 8)
 
-            ContainerAppHost(hostApp: hostApp, onExit: close) { error in
+            ContainerAppHost(hostApp: hostApp, launchInfo: bridge.launchInfo, onExit: close) { error in
                 errorMessage = error.localizedDescription
             }
             .id(launch)
@@ -61,6 +72,13 @@ struct RunningAppView: View {
         .background(Theme.background.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
         .statusBarHidden(false)
+        .onDisappear { bridge.invalidate() }
+        #if DEBUG
+        .sheet(isPresented: $isShowingBridgeInspector) {
+            BridgeInspector(bridge: bridge)
+                .presentationDetents([.medium, .large])
+        }
+        #endif
         .alert(Text("Couldn't open \(entry.app.name)"), isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil; close() } }
@@ -75,12 +93,13 @@ struct RunningAppView: View {
 /// Hosts the runtime's guest view controller. Dismissing the view terminates the guest.
 struct ContainerAppHost: UIViewControllerRepresentable {
     let hostApp: LCHostApp
+    var launchInfo: [String: Any] = [:]
     let onExit: () -> Void
     let onError: (Error) -> Void
 
     func makeUIViewController(context: Context) -> UIViewController {
         do {
-            return try LCHostRuntime.makeAppViewController(for: hostApp, onExit: onExit, onError: onError)
+            return try LCHostRuntime.makeAppViewController(for: hostApp, launchInfo: launchInfo, onExit: onExit, onError: onError)
         } catch {
             DispatchQueue.main.async { onError(error) }
             return UIViewController()
@@ -121,3 +140,63 @@ extension HermexApp {
         return updatedAt.formatted(.dateTime.month(.abbreviated).day())
     }
 }
+
+#if DEBUG
+/// Debug-only view of one app's bridge: what it registered and reports, and
+/// buttons for each host-to-app call. Copy is verbatim because it never ships.
+private struct BridgeInspector: View {
+    let bridge: GuestBridge
+    @State private var lastResult = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    LabeledContent { Text(verbatim: bridge.isConnected ? "Connected" : "Waiting") } label: { Text(verbatim: "Bridge") }
+                    if let registration = bridge.registration {
+                        LabeledContent { Text(verbatim: "\(registration.bundleIdentifier) · \(registration.version)") } label: { Text(verbatim: "App") }
+                    }
+                    if !lastResult.isEmpty {
+                        Text(verbatim: lastResult).font(.caption.monospaced()).accessibilityIdentifier("bridge.lastResult")
+                    }
+                }
+                Section {
+                    ForEach(bridge.registration?.routes ?? [], id: \.self) { route in
+                        Button {
+                            Task { lastResult = "open \(route) → \(await bridge.open(route))" }
+                        } label: { Text(verbatim: route).font(.body.monospaced()) }
+                    }
+                } header: { Text(verbatim: "Routes · tap to open") }
+                Section {
+                    if let context = bridge.context {
+                        LabeledContent { Text(verbatim: context.route).font(.body.monospaced()) } label: { Text(verbatim: "Route") }
+                        LabeledContent { Text(verbatim: context.breadcrumb.joined(separator: " › ")) } label: { Text(verbatim: "Sees") }
+                        ForEach(context.entities, id: \.self) { entity in
+                            Button {
+                                Task {
+                                    await bridge.highlight([entity.id])
+                                    lastResult = "highlight \(entity.id)"
+                                }
+                            } label: {
+                                Text(verbatim: "\(entity.type) · \(entity.title)")
+                            }
+                        }
+                    } else {
+                        Text(verbatim: "No context reported yet").foregroundStyle(.secondary)
+                    }
+                } header: { Text(verbatim: "Context · tap an entity to highlight it") }
+                Section {
+                    Button {
+                        Task {
+                            await bridge.refresh()
+                            lastResult = "refresh → done"
+                        }
+                    } label: { Text(verbatim: "Refresh") }
+                }
+            }
+            .navigationTitle(Text(verbatim: "Bridge"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+#endif

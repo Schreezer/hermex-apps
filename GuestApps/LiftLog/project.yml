@@ -1,0 +1,32 @@
+# Sample guest app for the Hermex bridge (build step 4) and a seed for the app
+# template (step 6). Build an IPA with scripts/build-guest-ipa.sh GuestApps/LiftLog.
+name: LiftLog
+options:
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  HermexAppKit:
+    path: ../../Packages/HermexAppKit
+targets:
+  LiftLog:
+    type: application
+    platform: iOS
+    sources: [LiftLog]
+    dependencies:
+      - package: HermexAppKit
+    info:
+      path: LiftLog/Info.plist
+      properties:
+        CFBundleDisplayName: Lift Log
+        CFBundleShortVersionString: "4"
+        CFBundleVersion: "4"
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.hermex.liftlog
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGNING_ALLOWED: "NO"

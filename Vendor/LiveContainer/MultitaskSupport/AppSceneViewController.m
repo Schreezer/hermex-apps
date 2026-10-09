@@ -32,6 +32,10 @@
 
 
 - (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID delegate:(id<AppSceneViewControllerDelegate>)delegate {
+    return [self initWithBundleId:bundleId dataUUID:dataUUID launchInfo:nil delegate:delegate];
+}
+
+- (instancetype)initWithBundleId:(NSString*)bundleId dataUUID:(NSString*)dataUUID launchInfo:(NSDictionary*)launchInfo delegate:(id<AppSceneViewControllerDelegate>)delegate {
     self = [super initWithNibName:nil bundle:nil];
     self.view = [[UIView alloc] init];
     self.delegate = delegate;
@@ -58,6 +62,10 @@
         @"lcHomePath": NSHomeDirectory(),
     }.mutableCopy;
     
+    if(launchInfo) {
+        [userInfo addEntriesFromDictionary:launchInfo];
+    }
+
     NSString* launchAppUrlScheme = [NSUserDefaults.standardUserDefaults stringForKey:@"launchAppUrlScheme"];
     [NSUserDefaults.lcUserDefaults removeObjectForKey:@"launchAppUrlScheme"];
     if(launchAppUrlScheme) {

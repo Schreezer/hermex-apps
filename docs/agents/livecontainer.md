@@ -43,6 +43,18 @@ how it is wired, what we changed in the vendored copy, and how to update it.
 - "Ask for a change" and "Ask Hermes for a new app" open a new chat with a draft
   through `NewChatRequest.initialDraft`.
 
+## Bridge to running apps
+
+- `Packages/HermexAppKit` is the guest SDK and the wire contract (see its
+  README). Hermex links it too.
+- `GuestBridge` is Hermex's end for one running app: an anonymous XPC listener
+  whose endpoint `RunningAppView` passes to `LCHostRuntime.makeAppViewController`
+  as launch info. It holds the app's registration and current context, and
+  sends open, refresh and highlight.
+- Debug builds add a bridge inspector to the running app's ⋯ menu.
+- `GuestApps/LiftLog` is a sample guest (xcodegen); build it with
+  `scripts/build-guest-ipa.sh GuestApps/LiftLog`.
+
 ## Build settings that matter
 
 - `Config/LiveContainerHost.xcconfig` is included at the end of
@@ -74,6 +86,8 @@ Keep this list current; each one has to survive `git subtree pull`.
    stock behavior.
 4. `xcconfigs/Global.xcconfig`: the optional include of
    `Config/LiveContainerHost.xcconfig`.
+5. `MultitaskSupport/AppSceneViewController.{h,m}`: an initializer that takes
+   `launchInfo`, merged into what LiveProcess receives (the bridge endpoint).
 
 ## Updating LiveContainer
 

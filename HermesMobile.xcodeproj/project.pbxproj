@@ -647,6 +647,9 @@
 		E7A1C0DE0000000000000202 /* AppLibraryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000201 /* AppLibraryTests.swift */; };
 		E7A1C0DE0000000000000203 /* LiveContainerSwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44587289F74E5F3DA822AB74 /* LiveContainerSwiftUI.framework */; };
 		E7A1C0DE0000000000000302 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000301 /* Fonts */; };
+		E7A1C0DE0000000000000403 /* HermexAppKit in Frameworks */ = {isa = PBXBuildFile; productRef = E7A1C0DE0000000000000402 /* HermexAppKit */; };
+		E7A1C0DE0000000000000412 /* GuestBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000411 /* GuestBridge.swift */; };
+		E7A1C0DE0000000000000422 /* GuestBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000421 /* GuestBridgeTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1441,6 +1444,8 @@
 		E7A1C0DE000000000000010E /* HermexHomeTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/HermexHomeTabs.swift; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000201 /* AppLibraryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLibraryTests.swift; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000301 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000411 /* GuestBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/GuestBridge.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000421 /* GuestBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuestBridgeTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1448,6 +1453,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7A1C0DE0000000000000403 /* HermexAppKit in Frameworks */,
 				1A2B3C4D5E6F700000000004 /* LDSwiftEventSource in Frameworks */,
 				1A2B3C4D5E6F700000000005 /* MarkdownUI in Frameworks */,
 				1A2B3C4D5E6F700000000006 /* Splash in Frameworks */,
@@ -1555,6 +1561,7 @@
 		1A2B3C4D5E6F700000000034 /* HermesMobileTests */ = {
 			isa = PBXGroup;
 			children = (
+				E7A1C0DE0000000000000421 /* GuestBridgeTests.swift */,
 				E7A1C0DE0000000000000201 /* AppLibraryTests.swift */,
 				B48200000000000000000007 /* BotProfileEditorTests.swift */,
 				B48200000000000000000035 /* BotLifecycleTests.swift */,
@@ -1885,6 +1892,7 @@
 		1A2B3C4D5E6F7000000000C3 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				E7A1C0DE0000000000000411 /* GuestBridge.swift */,
 				E7A1C0DE000000000000010E /* HermexHomeTabs.swift */,
 				E7A1C0DE000000000000010C /* AppDetailView.swift */,
 				E7A1C0DE000000000000010A /* AppsView.swift */,
@@ -2451,6 +2459,7 @@
 				1A2B3C4D5E6F700000000097 /* Highlightr */,
 				1A2B3C4D5E6F700000000098 /* KeychainAccess */,
 				5417A7400000000000000091 /* SwiftMath */,
+				E7A1C0DE0000000000000402 /* HermexAppKit */,
 			);
 			productName = HermesMobile;
 			productReference = 1A2B3C4D5E6F700000000010 /* HermesMobile.app */;
@@ -2588,6 +2597,7 @@
 				1A2B3C4D5E6F700000000093 /* XCRemoteSwiftPackageReference "Highlightr" */,
 				1A2B3C4D5E6F700000000099 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
 				5417A7400000000000000090 /* XCRemoteSwiftPackageReference "SwiftMath" */,
+				E7A1C0DE0000000000000401 /* XCLocalSwiftPackageReference "Packages/HermexAppKit" */,
 			);
 			productRefGroup = 1A2B3C4D5E6F700000000032 /* Products */;
 			projectDirPath = "";
@@ -2727,6 +2737,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7A1C0DE0000000000000412 /* GuestBridge.swift in Sources */,
 				E7A1C0DE000000000000010F /* HermexHomeTabs.swift in Sources */,
 				E7A1C0DE000000000000010D /* AppDetailView.swift in Sources */,
 				E7A1C0DE000000000000010B /* AppsView.swift in Sources */,
@@ -3127,6 +3138,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7A1C0DE0000000000000422 /* GuestBridgeTests.swift in Sources */,
 				E7A1C0DE0000000000000202 /* AppLibraryTests.swift in Sources */,
 				A4790000000000000000E006 /* PushRegistrationTests.swift in Sources */,
 				B48200000000000000000008 /* BotProfileEditorTests.swift in Sources */,
@@ -3886,6 +3898,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		E7A1C0DE0000000000000401 /* XCLocalSwiftPackageReference "Packages/HermexAppKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/HermexAppKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		1A2B3C4D5E6F700000000090 /* XCRemoteSwiftPackageReference "swift-eventsource" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -3967,6 +3986,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 1A2B3C4D5E6F700000000099 /* XCRemoteSwiftPackageReference "KeychainAccess" */;
 			productName = KeychainAccess;
+		};
+		E7A1C0DE0000000000000402 /* HermexAppKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E7A1C0DE0000000000000401 /* XCLocalSwiftPackageReference "Packages/HermexAppKit" */;
+			productName = HermexAppKit;
 		};
 		5417A7400000000000000091 /* SwiftMath */ = {
 			isa = XCSwiftPackageProductDependency;

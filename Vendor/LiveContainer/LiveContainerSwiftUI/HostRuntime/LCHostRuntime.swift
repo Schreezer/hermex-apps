@@ -118,9 +118,11 @@ public enum LCHostRuntime {
     }
 
     /// A view controller that launches the app in LiveProcess and renders it
-    /// edge to edge. Dismissing it terminates the app.
+    /// edge to edge. Dismissing it terminates the app. `launchInfo` reaches the
+    /// guest process (LiveProcessHandler.retrievedAppInfo), e.g. an XPC endpoint.
     public static func makeAppViewController(
         for app: LCHostApp,
+        launchInfo: [String: Any] = [:],
         onExit: @escaping @MainActor () -> Void,
         onError: @escaping @MainActor (Error) -> Void
     ) throws -> UIViewController {
@@ -136,6 +138,7 @@ public enum LCHostRuntime {
         return LCHostAppViewController(
             relativeBundlePath: app.relativeBundlePath,
             dataUUID: dataUUID,
+            launchInfo: launchInfo,
             onExit: onExit,
             onError: onError
         )
@@ -170,13 +173,15 @@ public enum LCHostRuntime {
 private final class LCHostAppViewController: UIViewController, AppSceneViewControllerDelegate {
     private let relativeBundlePath: String
     private let dataUUID: String
+    private let launchInfo: [String: Any]
     private let onExit: @MainActor () -> Void
     private let onError: @MainActor (Error) -> Void
     private var sceneController: AppSceneViewController?
 
-    init(relativeBundlePath: String, dataUUID: String, onExit: @escaping @MainActor () -> Void, onError: @escaping @MainActor (Error) -> Void) {
+    init(relativeBundlePath: String, dataUUID: String, launchInfo: [String: Any], onExit: @escaping @MainActor () -> Void, onError: @escaping @MainActor (Error) -> Void) {
         self.relativeBundlePath = relativeBundlePath
         self.dataUUID = dataUUID
+        self.launchInfo = launchInfo
         self.onExit = onExit
         self.onError = onError
         super.init(nibName: nil, bundle: nil)
@@ -187,7 +192,7 @@ private final class LCHostAppViewController: UIViewController, AppSceneViewContr
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        guard let scene = AppSceneViewController(bundleId: relativeBundlePath, dataUUID: dataUUID, delegate: self) else {
+        guard let scene = AppSceneViewController(bundleId: relativeBundlePath, dataUUID: dataUUID, launchInfo: launchInfo, delegate: self) else {
             return
         }
         sceneController = scene
