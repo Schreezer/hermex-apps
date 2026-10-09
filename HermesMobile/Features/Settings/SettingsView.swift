@@ -733,6 +733,13 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
 
+                    NavigationLink {
+                        ContainerAppsView()
+                    } label: {
+                        SettingsAccessoryRow(title: "Container Apps", systemImage: "app.badge")
+                    }
+                    .buttonStyle(.plain)
+
                     SettingsFootnote("Debug builds only. Replay a canned reply and tune the streamed-text fade feel live.")
                 }
                 #endif

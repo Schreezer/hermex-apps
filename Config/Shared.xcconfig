@@ -19,6 +19,14 @@ APP_GROUP_IDENTIFIER = group.com.uzairansar.hermesmobile$(APP_IDENTIFIER_SUFFIX)
 KEYCHAIN_DEFAULT_ACCESS_GROUP = $(DEVELOPMENT_TEAM).$(APP_BUNDLE_IDENTIFIER)
 KEYCHAIN_ACCESS_GROUP = $(DEVELOPMENT_TEAM).$(APP_BUNDLE_IDENTIFIER).push
 
+// The embedded LiveContainer runtime is arm64-only (it uses ARM inline
+// assembly), so simulator builds skip the Intel slice.
+EXCLUDED_ARCHS[sdk=iphonesimulator*] = x86_64
+
+// LiveContainerSwiftUI is built with a bridging header that importing targets
+// re-parse; the app and test targets add these to HEADER_SEARCH_PATHS.
+HERMEX_LIVECONTAINER_HEADER_SEARCH_PATHS = $(SRCROOT)/Vendor/LiveContainer/LiveContainerSwiftUI/Models $(SRCROOT)/Vendor/LiveContainer/LiveContainerSwiftUI/Utilities $(SRCROOT)/Vendor/LiveContainer/LiveContainer $(SRCROOT)/Vendor/LiveContainer/MultitaskSupport
+
 // Optional per-machine overrides. This include must stay last: later
 // assignments win, so Local.xcconfig values override the defaults above.
 #include? "Local.xcconfig"

@@ -86,6 +86,9 @@ struct HermesMobileApp: App {
         // Record installation age even before a server has been configured.
         _ = RatingPromptState.shared
         NetworkPathMonitor.shared.start()
+        // Sets up the embedded LiveContainer runtime; guest apps run in the
+        // LiveProcess extension, never in this process.
+        ContainerRuntime.bootstrap()
     }
 
     var body: some Scene {
@@ -97,6 +100,11 @@ struct HermesMobileApp: App {
             if ProcessInfo.processInfo.arguments.contains("--streaming-lab") {
                 NavigationStack {
                     StreamingLabView()
+                }
+            } else if ProcessInfo.processInfo.arguments.contains("--container-apps") {
+                // Opens the embedded-runtime harness directly for simulator runs.
+                NavigationStack {
+                    ContainerAppsView()
                 }
             } else {
                 ContentView(authManager: authManager)

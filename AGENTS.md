@@ -77,7 +77,7 @@ The most common defect in this repo is a change that works on the path you teste
 - **Reverse states.** If you added a way in, add the way out and the way to see it. Archive needs restore. Pin needs unpin. Start needs stop. Optimistic mutation needs rollback. A one-way door is a bug.
 - **Connection modes.** `localhost`, Tailscale, and tunnel behave differently; Cloudflare closes quiet streams. Backgrounding, reconnecting, and reattaching to a live stream instead of resending the message are real cases.
 - **Native quality.** Dynamic Type, VoiceOver labels, Reduce Motion, light and dark appearance, keyboard focus, and localization. Read `docs/agents/i18n.md` before touching the String Catalog, plurals, casing, or RTL.
-- **Docs.** Agent conventions live in `docs/agents/`; new vocabulary in `CONTEXT.md`; build and simulator mechanics in `DEVELOPMENT.md`; upstream parity status in `docs/agents/feature-gap-index.md`; Kanban contract and behavior rules in `docs/agents/kanban.md`. Push components, keys, and relay data in `docs/agents/push.md`. `CHANGELOG.md` is written at release time, not per PR.
+- **Docs.** Agent conventions live in `docs/agents/`; new vocabulary in `CONTEXT.md`; build and simulator mechanics in `DEVELOPMENT.md`; upstream parity status in `docs/agents/feature-gap-index.md`; Kanban contract and behavior rules in `docs/agents/kanban.md`. Push components, keys, and relay data in `docs/agents/push.md`. The embedded LiveContainer runtime (vendored copy, local patches, updating) in `docs/agents/livecontainer.md`. `CHANGELOG.md` is written at release time, not per PR.
 
 ## Working with the server
 
