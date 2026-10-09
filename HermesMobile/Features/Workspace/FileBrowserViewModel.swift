@@ -234,9 +234,11 @@ final class FileBrowserViewModel {
         }
     }
 
-    /// Forgets every listing and makes the ones in flight stale.
+    /// Forgets every listing and the prefetches, and makes every listing in flight stale,
+    /// including a folder's first, which has no cached children yet.
     private func dropTree() {
-        for path in tree.children.keys where path != FileTree.rootPath { _ = bumpGeneration(for: path) }
+        for path in loadGenerations.keys where path != FileTree.rootPath { _ = bumpGeneration(for: path) }
+        cancelPrefetches()
         tree = FileTree()
         loadingPaths = [:]
         failedPaths = [:]

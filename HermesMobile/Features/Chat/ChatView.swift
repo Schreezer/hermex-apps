@@ -1124,6 +1124,8 @@ struct ChatView: View {
                 }
             }
             .sheet(item: $openedFileReference, content: fileReferenceSheet)
+            // A file link opened in a Hermes chat's old folder reads through the old client: close it.
+            .onChange(of: viewModel.hermesWorkspace) { openedFileReference = nil }
             .sheet(item: $activeGitSheet, content: gitSheet)
             .sheet(item: $turnDiffPresentation, content: turnDiffSheet)
             .alert(item: $gitAlert, content: gitAlertPresentation)

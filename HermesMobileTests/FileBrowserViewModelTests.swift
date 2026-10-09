@@ -454,6 +454,42 @@ final class FileBrowserViewModelTests: APIClientTestCase {
         XCTAssertNil(viewModel.takeLastError(), "The host's answer about the folder is not a failed request")
     }
 
+    /// A folder's first listing still in flight when the chat's folder disappears never lands
+    /// once the folder is back, even after the folder was closed and the root listed again (#188).
+    @MainActor
+    func testAFirstListingInFlightWhenTheFolderDisappearsNeverLands() async throws {
+        let cwd = HermesWorkspaceFileClientTests.cwd
+        let parked = expectation(description: "src's first listing is in flight")
+        HermesHostFixture.onPark = { parked.fulfill() }
+        var rootIsGone = false
+        var srcParks = true
+        let files = HermesWorkspaceFileClientTests.client { request in
+            switch HermesWorkspaceFileClientTests.queryPath(request) {
+            case cwd: return rootIsGone ? .json(200, .object(["entries": .array([]), "error": .string("ENOENT")]))
+                : HermesWorkspaceFileClientTests.listing(cwd, [("src", true)])
+            case cwd + "/src": return srcParks ? .park : HermesWorkspaceFileClientTests.listing(cwd + "/src", [("new.swift", false)])
+            default: return nil
+            }
+        }
+        FileTreeExpansionStore(scope: files.scope, defaults: defaults).save([])
+        let viewModel = FileBrowserViewModel(files: files, defaults: defaults)
+        await viewModel.loadInitialRootIfNeeded()
+        let staleOpen = Task { await viewModel.toggleDirectory("src") }
+        await fulfillment(of: [parked], timeout: 5)
+        await viewModel.toggleDirectory("src")
+
+        HermesHostFixture.script { rootIsGone = true }
+        await viewModel.refresh()
+        HermesHostFixture.script { rootIsGone = false; srcParks = false }
+        await viewModel.refresh()
+        HermesHostFixture.releaseParked(HermesWorkspaceFileClientTests.listing(cwd + "/src", [("old.swift", false)]))
+        await staleOpen.value
+
+        XCTAssertFalse(viewModel.tree.isLoaded("src"), "The listing from before the folder disappeared is stale")
+        await viewModel.toggleDirectory("src")
+        XCTAssertEqual(viewModel.visibleNodes(matching: "").map(\.node.path), ["src", "src/new.swift"])
+    }
+
     /// The chat's folder moving drops the tree, the expansion and the prefetches, and lists the
     /// new folder with its own expansion. A listing of the old folder still in flight never lands
     /// in the new tree, even in a folder of the same name that nothing has listed (#188).

@@ -156,6 +156,9 @@ struct FileResponse: Decodable, Equatable {
     var isBinary = false
     /// A Hermes host's file past its 512 KiB preview, which `content` holds. webui never sets it.
     var isTruncated = false
+    /// A Hermes host's text, which is a preview, not the file's bytes: decoded with replacement
+    /// characters and cut at 512 KiB, so export downloads the file instead (#1112). webui never sets it.
+    var isPreviewOnly = false
 
     enum CodingKeys: String, CodingKey {
         case content, path, name, language, size, lines, error

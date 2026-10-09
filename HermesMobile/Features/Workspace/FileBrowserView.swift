@@ -36,6 +36,12 @@ struct FileBrowserView: View {
                 onAPIError: onAPIError
             )
         }
+        // A file opened from the old workspace reads through the old client: close it.
+        .onChange(of: files?.scope) {
+            openedFile = nil
+            openedFilePrefetch?.cancel()
+            openedFilePrefetch = nil
+        }
         .task(id: files?.scope) {
             await viewModel.switchWorkspace(to: files)
             await viewModel.loadInitialRootIfNeeded()

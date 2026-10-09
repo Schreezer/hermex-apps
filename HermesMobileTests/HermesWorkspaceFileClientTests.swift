@@ -116,6 +116,45 @@ import XCTest
         XCTAssertFalse(text.isTruncated)
     }
 
+    /// The host decodes text with replacement characters, so the preview is not the file: Save
+    /// and Share download the file's own bytes instead of re-encoding the preview.
+    func testExportDownloadsTheFileRatherThanItsPreviewText() async throws {
+        let client = Self.client { request in
+            switch request.url?.path {
+            case "/api/fs/read-text": .json(200, .object([
+                "text": .string("caf\u{FFFD}\n"), "binary": .bool(false), "truncated": .bool(false), "byteSize": .number(5)
+            ]))
+            case "/api/fs/download": .json(200, .string("original bytes"))
+            default: nil
+            }
+        }
+        let viewModel = FilePreviewViewModel(files: client, path: "notes.txt")
+
+        await viewModel.load()
+        let export = try await viewModel.exportPayload()
+
+        XCTAssertEqual(export.data, Data(#""original bytes""#.utf8))
+        XCTAssertEqual(Self.fileRequests.map { $0.url?.path }, ["/api/fs/read-text", "/api/fs/download"])
+        XCTAssertEqual(Self.fileRequests.last.flatMap(Self.queryPath), "notes.txt")
+    }
+
+    /// A symlinked folder lists as a file; opening it is the preview's No Preview state, not a
+    /// failed load to retry.
+    func testASymlinkedFolderOpensAsNoPreview() async {
+        let client = Self.client { request in
+            request.url?.path == "/api/fs/read-text" ? .json(400, .object(["detail": .string("Path points to a directory")])) : nil
+        }
+        let viewModel = FilePreviewViewModel(files: client, path: "linked-src")
+
+        await viewModel.load()
+
+        XCTAssertNil(viewModel.errorMessage)
+        guard case let .unavailable(message) = viewModel.preview else {
+            return XCTFail("Expected No Preview, got \(String(describing: viewModel.preview))")
+        }
+        XCTAssertEqual(message, "Preview is not available for this file type.")
+    }
+
     /// The host's reason for a refusal shows unless it names a path, as an `OSError`'s does.
     func testARefusalThatNamesAHostPathIsNotShown() async {
         let details = [
@@ -156,6 +195,23 @@ import XCTest
             [URLQueryItem(name: "path", value: "/tmp/hermes/screenshot.png"), URLQueryItem(name: "profile", value: "research"),
              URLQueryItem(name: "session_id", value: "20261008_101500_abc123")]
         ])
+    }
+
+    /// Image and Quick Look previews stop at 25 MB; Save and Share download the whole file.
+    func testOnlyPreviewDownloadsStopAt25MB() async throws {
+        let large = String(repeating: "a", count: BotArtifactBuffer.maximumBytes)
+        let client = Self.client { request in
+            request.url?.path == "/api/fs/download" ? .json(200, .string(large)) : nil
+        }
+
+        let export = try await client.rawFileData(path: "archive.zip")
+        XCTAssertEqual(export.count, BotArtifactBuffer.maximumBytes + 2)
+        do {
+            _ = try await client.imagePreviewData(path: "huge.png")
+            XCTFail("Expected an image preview past 25 MB to stop")
+        } catch {
+            XCTAssertEqual(error as? BotArtifactFailure, .tooLarge)
+        }
     }
 
     // MARK: Scope

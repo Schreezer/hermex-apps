@@ -54,28 +54,46 @@ struct HermesWorkspaceContext: Hashable, Sendable {
         return DirectoryListResponse(entries: entries, path: path, workspace: nil, error: nil)
     }
 
-    /// The file's first 512 KiB as text, or none for a binary file. A truncated file has no line count.
+    /// The file's first 512 KiB as text, or none for a binary file. The host decodes it with
+    /// replacement characters, so it is only ever a preview: export downloads the file. A
+    /// truncated file has no line count. A symlinked folder, which the listing shows as a file,
+    /// reads as a file with no preview.
     func file(path: String) async throws -> FileResponse {
-        let reply = try Self.json(try await send(.fsReadText(path: try Self.hostPath(path, in: context.cwd))))
+        let name = path.split(separator: "/").last.map(String.init)
+        let body: Data
+        do {
+            body = try await send(.fsReadText(path: try Self.hostPath(path, in: context.cwd)))
+        } catch let refusal as HermesCronRefusal where refusal.detail == "Path points to a directory" {
+            return FileResponse(content: nil, path: path, name: name, language: nil, size: nil, lines: nil,
+                                error: nil, isBinary: true, isPreviewOnly: true)
+        }
+        let reply = try Self.json(body)
         let isBinary = reply["binary"].flag == true
         let isTruncated = reply["truncated"].flag == true
         let text = isBinary ? nil : reply["text"].text
         return FileResponse(
-            content: text, path: path, name: path.split(separator: "/").last.map(String.init),
+            content: text, path: path, name: name,
             language: reply["language"].text, size: reply["byteSize"].integer,
             lines: isTruncated ? nil : text.map { $0.reduce(1) { $1 == "\n" ? $0 + 1 : $0 } },
-            error: nil, isBinary: isBinary, isTruncated: isTruncated
+            error: nil, isBinary: isBinary, isTruncated: isTruncated, isPreviewOnly: true
         )
     }
 
+    /// The whole file, for Save to Files and Share: no size cap, as on webui.
     func rawFileData(path: String) async throws -> Data {
+        _ = try Self.hostPath(path, in: context.cwd)
+        return try await download(path, limit: nil)
+    }
+
+    /// At most 25 MB (`BotArtifactBuffer`), for Quick Look.
+    func rawFilePreviewData(path: String) async throws -> Data {
         _ = try Self.hostPath(path, in: context.cwd)
         return try await download(path)
     }
 
-    /// Every Hermes download stops at 25 MB (`BotArtifactDownload`).
-    func rawFilePreviewData(path: String) async throws -> Data {
-        try await rawFileData(path: path)
+    /// An image preview keeps the 25 MB cap of every Hermes preview download.
+    func imagePreviewData(path: String) async throws -> Data {
+        try await rawFilePreviewData(path: path)
     }
 
     /// A MEDIA path is the reply's own, often outside the folder, so it is sent as written; the
@@ -96,11 +114,11 @@ struct HermesWorkspaceContext: Hashable, Sendable {
         return (root == "/" ? "" : root) + "/" + path
     }
 
-    private func download(_ path: String) async throws -> Data {
+    private func download(_ path: String, limit: Int? = BotArtifactBuffer.maximumBytes) async throws -> Data {
         let request = try HermesREST.downloadArtifact(path: path, profile: context.profile, sessionID: context.storedKey)
             .request(base: http.connection.address)
         return try await http.authorized(request) { request, session in
-            try await BotArtifactDownload.data(session: session, request: request)
+            try await BotArtifactDownload.data(session: session, request: request, limit: limit)
         }
     }
 

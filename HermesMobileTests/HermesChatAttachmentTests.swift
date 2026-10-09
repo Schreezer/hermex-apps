@@ -406,6 +406,27 @@ import UIKit
                                URLQueryItem(name: "session_id", value: "tip")])
     }
 
+    /// A MEDIA reference's inline audio, video or file in a reply downloads from the host by
+    /// the path the reply wrote, under the session's Profile and stored key, so the host
+    /// resolves it against the session; webui's `/api/media` is never asked.
+    func testInlineTranscriptMediaDownloadsFromTheHost() async throws {
+        let chat = await openChat()
+        var query: [URLQueryItem]?
+        _ = HermesHostFixture.configuration { request in
+            guard request.url?.path == "/api/fs/download" else { return nil }
+            query = request.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.queryItems }
+            return .json(200, .string("audio"))
+        }
+
+        let data = await chat.model.transcriptMediaData(for: TranscriptMediaReference(rawReference: "/tmp/report.wav"))
+
+        XCTAssertEqual(data, Data(#""audio""#.utf8))
+        XCTAssertEqual(query, [URLQueryItem(name: "path", value: "/tmp/report.wav"),
+                               URLQueryItem(name: "profile", value: "default"),
+                               URLQueryItem(name: "session_id", value: "tip")])
+        XCTAssertFalse(HermesHostFixture.requests.contains { $0.url?.path == "/api/media" })
+    }
+
     // MARK: Fixture
 
     private static let connection = BotConnection(id: UUID(), name: "Mac", address: URL(string: "http://hermes.local:9120")!,

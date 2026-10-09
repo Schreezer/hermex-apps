@@ -1476,11 +1476,15 @@ panel (#1113) and Git (#1114) read the same context.
   build dist node_modules target venv` and credential files, as Desktop does; the app adds no
   workaround. A symlinked folder lists as a file, so it is not browsable and opens the preview's
   "can't preview" state.
-- **Reads.** `GET /api/fs/read-text` is the first 512 KiB: `binary` shows No Preview, and
-  `truncated` shows the start with a "Preview truncated" note, without a line count, and exports
-  the downloaded file rather than the preview. Every download stops at 25 MB.
+- **Reads.** `GET /api/fs/read-text` is the first 512 KiB, decoded with replacement
+  characters, so it is only a preview: Save and Share always download the file. `binary` shows
+  No Preview, and `truncated` shows the start with a "Preview truncated" note, without a line
+  count. A symlinked folder answers 400 `Path points to a directory`, which shows No Preview.
+  Image, Quick Look and MEDIA previews stop at 25 MB; Save and Share have no cap, as on webui.
+  Inline MEDIA thumbnails, audio and video in the transcript download as sent files do.
 - **Caches.** The tree's expansion is kept per server, Profile, stored key and `cwd`, so two
-  chats in one folder never share it.
+  chats in one folder never share it. A `cwd` change closes a file preview or file link opened
+  from the old folder.
 
 ## Memory on a Hermes host
 

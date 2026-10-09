@@ -12,10 +12,13 @@ protocol WorkspaceFileClient: Sendable {
     func directoryList(path: String) async throws -> DirectoryListResponse
     /// A text file's content for its preview.
     func file(path: String) async throws -> FileResponse
-    /// A file's bytes, for Save to Files, Share and image previews.
+    /// A file's whole bytes, for Save to Files and Share.
     func rawFileData(path: String) async throws -> Data
     /// `rawFileData` for Quick Look: at most 25 MB.
     func rawFilePreviewData(path: String) async throws -> Data
+    /// An image's bytes for its preview, which its export then reuses: the whole file on webui,
+    /// at most 25 MB on a Hermes host.
+    func imagePreviewData(path: String) async throws -> Data
     /// A MEDIA reference's bytes, by the local path the reply names.
     func mediaData(path: String) async throws -> Data
 }
@@ -68,6 +71,10 @@ struct WebUIWorkspaceFileClient: WorkspaceFileClient {
 
     func rawFilePreviewData(path: String) async throws -> Data {
         try await apiClient.rawFilePreviewData(sessionID: sessionID, path: path)
+    }
+
+    func imagePreviewData(path: String) async throws -> Data {
+        try await apiClient.rawFileData(sessionID: sessionID, path: path)
     }
 
     func mediaData(path: String) async throws -> Data {

@@ -72,7 +72,7 @@ final class FilePreviewViewModel {
 
         do {
             if isRasterImagePath {
-                let data = try await files.rawFileData(path: path)
+                let data = try await files.imagePreviewData(path: path)
                 exportData = data
                 if let previewData = ImagePreviewDownsampler.previewData(
                     from: data,
@@ -103,8 +103,8 @@ final class FilePreviewViewModel {
                 if file.isBinary {
                     preview = .unavailable(String(localized: "Preview is not available for this file type."))
                 } else {
-                    // A truncated preview is not the file: export downloads it instead.
-                    exportData = file.isTruncated ? nil : Data((file.content ?? "").utf8)
+                    // A preview-only text is not the file: export downloads it instead.
+                    exportData = file.isPreviewOnly ? nil : Data((file.content ?? "").utf8)
                     markdownChunks = Self.isMarkdownPath(path)
                         ? MarkdownPreviewChunker.chunks(for: file.content ?? "")
                         : nil

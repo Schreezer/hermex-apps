@@ -25,9 +25,11 @@ final class BotArtifactRedirectGuard: NSObject, URLSessionTaskDelegate, @uncheck
 
 /// Reads one artifact from a `HermesREST.downloadArtifact` request, or one `HermesREST.speak`
 /// reply, on the session `HermesConnection.authorized` passes in. No webui endpoint or shared
-/// URLSession.
+/// URLSession. `limit` caps a preview's bytes; nil reads the whole file, as a workspace file's
+/// Save and Share do (#1112).
 enum BotArtifactDownload {
-    static func data(session: URLSession, request: URLRequest) async throws -> Data {
+    static func data(session: URLSession, request: URLRequest,
+                     limit: Int? = BotArtifactBuffer.maximumBytes) async throws -> Data {
         let (bytes, response) = try await session.bytes(for: request, delegate: BotArtifactRedirectGuard())
         defer { bytes.task.cancel() }
         guard let response = response as? HTTPURLResponse else { throw BotArtifactFailure.unavailable }
@@ -35,8 +37,8 @@ enum BotArtifactDownload {
             if [401, 403].contains(response.statusCode) { throw BotFailure.rejected(response.statusCode) }
             throw BotArtifactFailure.unavailable
         }
-        guard response.expectedContentLength <= Int64(BotArtifactBuffer.maximumBytes) else { throw BotArtifactFailure.tooLarge }
-        var buffer = BotArtifactBuffer()
+        if let limit, response.expectedContentLength > Int64(limit) { throw BotArtifactFailure.tooLarge }
+        var buffer = BotArtifactBuffer(limit: limit ?? .max)
         var chunk = Data()
         chunk.reserveCapacity(64 * 1024)
         for try await byte in bytes {
