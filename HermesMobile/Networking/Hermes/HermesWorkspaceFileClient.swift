@@ -57,15 +57,14 @@ struct HermesWorkspaceContext: Hashable, Sendable {
     /// The file's first 512 KiB as text, or none for a binary file. The host decodes it with
     /// replacement characters, so it is only ever a preview: export downloads the file. A
     /// truncated file has no line count. A symlinked folder, which the listing shows as a file,
-    /// reads as a file with no preview.
+    /// throws `BotArtifactFailure.folder` here and from every download.
     func file(path: String) async throws -> FileResponse {
         let name = path.split(separator: "/").last.map(String.init)
         let body: Data
         do {
             body = try await send(.fsReadText(path: try Self.hostPath(path, in: context.cwd)))
         } catch let refusal as HermesCronRefusal where refusal.detail == "Path points to a directory" {
-            return FileResponse(content: nil, path: path, name: name, language: nil, size: nil, lines: nil,
-                                error: nil, isBinary: true, isPreviewOnly: true)
+            throw BotArtifactFailure.folder
         }
         let reply = try Self.json(body)
         let isBinary = reply["binary"].flag == true
@@ -79,10 +78,11 @@ struct HermesWorkspaceContext: Hashable, Sendable {
         )
     }
 
-    /// The whole file, for Save to Files and Share: no size cap, as on webui.
+    /// The whole file, for Save to Files and Share: no size cap, as on webui, and an empty file
+    /// is the file.
     func rawFileData(path: String) async throws -> Data {
         _ = try Self.hostPath(path, in: context.cwd)
-        return try await download(path, limit: nil)
+        return try await download(path, limit: nil, allowsEmpty: true)
     }
 
     /// At most 25 MB (`BotArtifactBuffer`), for Quick Look.
@@ -114,11 +114,12 @@ struct HermesWorkspaceContext: Hashable, Sendable {
         return (root == "/" ? "" : root) + "/" + path
     }
 
-    private func download(_ path: String, limit: Int? = BotArtifactBuffer.maximumBytes) async throws -> Data {
+    private func download(_ path: String, limit: Int? = BotArtifactBuffer.maximumBytes,
+                          allowsEmpty: Bool = false) async throws -> Data {
         let request = try HermesREST.downloadArtifact(path: path, profile: context.profile, sessionID: context.storedKey)
             .request(base: http.connection.address)
         return try await http.authorized(request) { request, session in
-            try await BotArtifactDownload.data(session: session, request: request, limit: limit)
+            try await BotArtifactDownload.data(session: session, request: request, limit: limit, allowsEmpty: allowsEmpty)
         }
     }
 

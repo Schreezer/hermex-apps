@@ -860,8 +860,8 @@ signed-in connection using `GET /api/fs/download?path=…&profile=…&session_id
 Relative paths are resolved by the host's session cwd; no iOS filesystem base or
 webui transport is used. Known same-origin media/download links contribute only
 their path; embedded auth tokens and identity overrides are discarded. Redirects
-are rejected. Each response is capped at 25 MB, including chunked responses with
-no length header. Disconnect cancels downloads, stale completions are rejected,
+are rejected. Each preview response is capped at 25 MB, including chunked responses
+with no length header; a Hermes chat's MEDIA file export reads the whole file (#1112). Disconnect cancels downloads, stale completions are rejected,
 and dismissal removes the preview's temporary file. No persistent artifact cache
 is shared between conversations. Missing routes, denied files and unknown formats
 leave an explicit preview failure or the native viewer's unsupported-file state.
@@ -1479,9 +1479,12 @@ panel (#1113) and Git (#1114) read the same context.
 - **Reads.** `GET /api/fs/read-text` is the first 512 KiB, decoded with replacement
   characters, so it is only a preview: Save and Share always download the file. `binary` shows
   No Preview, and `truncated` shows the start with a "Preview truncated" note, without a line
-  count. A symlinked folder answers 400 `Path points to a directory`, which shows No Preview.
-  Image, Quick Look and MEDIA previews stop at 25 MB; Save and Share have no cap, as on webui.
-  Inline MEDIA thumbnails, audio and video in the transcript download as sent files do.
+  count. A symlinked folder answers 400 `Path points to a directory` to `read-text` and
+  `download` alike (`BotArtifactFailure.folder`), which shows No Preview whatever its name.
+  Image, Quick Look and MEDIA previews and MEDIA thumbnails stop at 25 MB; Save and Share, and an
+  inline MEDIA file's export and audio, have no cap, as on webui. Save and Share accept an empty
+  file; every other download treats an empty body as a failed read. Inline MEDIA in the
+  transcript downloads as sent files do, on the session's Profile and stored key.
 - **Caches.** The tree's expansion is kept per server, Profile, stored key and `cwd`, so two
   chats in one folder never share it. A `cwd` change closes a file preview or file link opened
   from the old folder.

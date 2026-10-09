@@ -139,20 +139,53 @@ import XCTest
     }
 
     /// A symlinked folder lists as a file; opening it is the preview's No Preview state, not a
-    /// failed load to retry.
+    /// failed load to retry, whether its name previews as text, an image or through Quick Look.
     func testASymlinkedFolderOpensAsNoPreview() async {
         let client = Self.client { request in
-            request.url?.path == "/api/fs/read-text" ? .json(400, .object(["detail": .string("Path points to a directory")])) : nil
+            request.url?.path.hasPrefix("/api/fs/") == true
+                ? .json(400, .object(["detail": .string("Path points to a directory")])) : nil
         }
-        let viewModel = FilePreviewViewModel(files: client, path: "linked-src")
+        for (path, route) in [("linked-src", "/api/fs/read-text"), ("linked.png", "/api/fs/download"),
+                              ("linked.pdf", "/api/fs/download")] {
+            let viewModel = FilePreviewViewModel(files: client, path: path)
+
+            await viewModel.load()
+
+            XCTAssertEqual(Self.fileRequests.last?.url?.path, route, path)
+            XCTAssertNil(viewModel.errorMessage, path)
+            guard case let .unavailable(message) = viewModel.preview else {
+                XCTFail("Expected No Preview for \(path), got \(String(describing: viewModel.preview))")
+                continue
+            }
+            XCTAssertEqual(message, "Preview is not available for this file type.", path)
+        }
+    }
+
+    /// An empty file previews as empty text and exports as zero bytes; an empty MEDIA download
+    /// is still a failed read.
+    func testAnEmptyFileExportsZeroBytes() async throws {
+        let client = Self.client { request in
+            switch request.url?.path {
+            case "/api/fs/read-text": .json(200, .object([
+                "text": .string(""), "binary": .bool(false), "truncated": .bool(false), "byteSize": .number(0)
+            ]))
+            case "/api/fs/download": .body(200, Data())
+            default: nil
+            }
+        }
+        let viewModel = FilePreviewViewModel(files: client, path: "notes.txt")
 
         await viewModel.load()
+        let export = try await viewModel.exportPayload()
 
-        XCTAssertNil(viewModel.errorMessage)
-        guard case let .unavailable(message) = viewModel.preview else {
-            return XCTFail("Expected No Preview, got \(String(describing: viewModel.preview))")
+        XCTAssertEqual(export.data, Data())
+        XCTAssertEqual(Self.fileRequests.map { $0.url?.path }, ["/api/fs/read-text", "/api/fs/download"])
+        do {
+            _ = try await client.mediaData(path: "/tmp/empty.png")
+            XCTFail("Expected an empty MEDIA download to fail")
+        } catch {
+            XCTAssertEqual(error as? BotArtifactFailure, .unavailable)
         }
-        XCTAssertEqual(message, "Preview is not available for this file type.")
     }
 
     /// The host's reason for a refusal shows unless it names a path, as an `OSError`'s does.

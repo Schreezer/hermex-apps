@@ -65,7 +65,7 @@ import Foundation
         try await gateway.send(call, for: consumerID, validateDispatch: validateDispatch)
     }
 
-    func artifactData(path: String, context: BotArtifactContext) async throws -> Data {
+    func artifactData(path: String, context: BotArtifactContext, limit: Int?) async throws -> Data {
         guard context.connectionID == http.connection.id, gateway.isAttached(consumerID) else { throw BotFailure.stale }
         let attempt = self.attempt
         let request = try HermesREST.downloadArtifact(path: path, profile: context.profile, sessionID: context.sessionID)
@@ -74,7 +74,7 @@ import Foundation
         let http = self.http
         let task = Task {
             try await http.authorized(request, validateDispatch: { try self.checkOwner(attempt) }) { request, session in
-                try await BotArtifactDownload.data(session: session, request: request)
+                try await BotArtifactDownload.data(session: session, request: request, limit: limit)
             }
         }
         artifactTasks[id] = task

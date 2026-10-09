@@ -405,13 +405,14 @@ struct HermesChatTranscript: Equatable {
     /// thumbnail and preview. Downloads through this attach as Bot Chat does
     /// (`HermesREST.downloadArtifact` with the session's Profile and stored key), so the
     /// host resolves a relative `@file:` path against the session. Throws `.stale` while
-    /// detached, and for a result that lands after a reattach or a cancel.
-    func attachmentData(path: String) async throws -> Data {
+    /// detached, and for a result that lands after a reattach or a cancel. `limit` caps a
+    /// preview at 25 MB; a MEDIA file's export passes nil for the whole file (#1112).
+    func attachmentData(path: String, limit: Int? = BotArtifactBuffer.maximumBytes) async throws -> Data {
         guard engine.connectionState == .connected, let key = engine.storedKey else { throw BotFailure.stale }
         let attempt = engine.generation
         let context = BotArtifactContext(connectionID: engine.connection.id, profile: engine.target.profile,
                                          sessionID: key, generation: attempt)
-        let data = try await engine.wire.artifactData(path: path, context: context)
+        let data = try await engine.wire.artifactData(path: path, context: context, limit: limit)
         try engine.check(attempt)
         return data
     }

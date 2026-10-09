@@ -111,6 +111,9 @@ final class FilePreviewViewModel {
                     preview = .text(file)
                 }
             }
+        } catch BotArtifactFailure.folder {
+            // A symlinked folder a Hermes host lists as a file (#1112): nothing to preview or retry.
+            preview = .unavailable(String(localized: "Preview is not available for this file type."))
         } catch {
             lastError = error
             errorMessage = error.localizedDescription

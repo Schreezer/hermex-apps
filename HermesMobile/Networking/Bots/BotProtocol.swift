@@ -164,7 +164,9 @@ enum BotConnectionAdvice {
     /// socket write, so an action that went stale while queued is never sent.
     func call(_ call: HermesCall, validateDispatch: (() throws -> Void)?) async throws -> BotJSON
     func uploadImage(data: Data, filename: String, context: BotArtifactContext) async throws -> String
-    func artifactData(path: String, context: BotArtifactContext) async throws -> Data
+    /// One file the host serves by `path` under `context`'s Profile and session. `limit` caps a
+    /// preview's bytes; nil reads the whole file, as a MEDIA file's export does (#1112).
+    func artifactData(path: String, context: BotArtifactContext, limit: Int?) async throws -> Data
     /// Removes a Profile on the host over the authenticated HTTP session. Only
     /// a 200 with `ok` counts as deleted; anything else leaves the bot in place.
     func deleteProfile(_ name: String) async throws
@@ -214,8 +216,13 @@ extension BotTransport {
         throw BotFailure.unsupported
     }
 
-    func artifactData(path: String, context: BotArtifactContext) async throws -> Data {
+    func artifactData(path: String, context: BotArtifactContext, limit: Int?) async throws -> Data {
         throw BotArtifactFailure.unavailable
+    }
+
+    /// A preview's download: at most 25 MB.
+    func artifactData(path: String, context: BotArtifactContext) async throws -> Data {
+        try await artifactData(path: path, context: context, limit: BotArtifactBuffer.maximumBytes)
     }
 
     func deleteProfile(_ name: String) async throws {

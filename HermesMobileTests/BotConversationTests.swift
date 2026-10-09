@@ -2177,7 +2177,7 @@ actor BotMemoryDrafts: ChatDraftPersisting {
         return try await imageUpload(data, filename, context)
     }
     var downloadArtifact: ((String, BotArtifactContext) async throws -> Data)?
-    func artifactData(path: String, context: BotArtifactContext) async throws -> Data {
+    func artifactData(path: String, context: BotArtifactContext, limit: Int?) async throws -> Data {
         guard let downloadArtifact else { throw BotArtifactFailure.unavailable }
         return try await downloadArtifact(path, context)
     }
