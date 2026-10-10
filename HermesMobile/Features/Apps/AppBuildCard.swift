@@ -1,19 +1,92 @@
 import SwiftUI
 
-/// Hermes' `apps_create` / `apps_build` calls in a group of tool calls, shown
-/// as build cards (screen 04). Outside the webui home (no `AppLibrary` in the
+/// Hermes' Hermex Apps calls in a group of tool calls, shown as cards:
+/// `apps_create` / `apps_build` as build cards (screen 04), `apps_open` as
+/// opening cards (screen 11). Outside the webui home (no `AppLibrary` in the
 /// environment) it shows nothing.
-struct AppBuildCards: View {
+struct AppToolCards: View {
     let toolCalls: [ToolCall]
 
     @Environment(AppLibrary.self) private var library: AppLibrary?
+
+    static func hasCards(in toolCalls: [ToolCall]) -> Bool {
+        !AppBuildCall.calls(in: toolCalls).isEmpty || !AppOpenCall.calls(in: toolCalls).isEmpty
+    }
 
     var body: some View {
         if let library {
             ForEach(AppBuildCall.calls(in: toolCalls), id: \.appID) { call in
                 AppBuildCard(call: call, library: library)
             }
+            ForEach(AppOpenCall.calls(in: toolCalls), id: \.id) { call in
+                AppOpenCard(call: call, library: library)
+            }
         }
+    }
+}
+
+/// A `hermex-apps` MCP call's tool name and arguments. Hermes may defer MCP
+/// tools behind a generic `tool_call(name, arguments)`; this unwraps it.
+struct HermexAppsToolCall {
+    let name: String
+    let fields: Fields
+
+    init?(_ toolCall: ToolCall) {
+        var name = toolCall.name ?? ""
+        var arguments: JSONValue? = toolCall.args.map(JSONValue.object)
+        if name == "tool_call" {
+            name = Self.string(toolCall.args?["name"]) ?? ""
+            arguments = toolCall.args?["arguments"]
+        }
+        guard name.contains("hermex_apps") else { return nil }
+        self.name = name
+        fields = Fields(arguments)
+    }
+
+    /// Arguments as an object, or as the text the server keeps for settled
+    /// calls (JSON or Python-style, possibly cut short).
+    struct Fields {
+        let object: [String: JSONValue]?
+        let text: String?
+
+        init(_ value: JSONValue?) {
+            switch value {
+            case .object(let object)?:
+                self.object = object
+                text = nil
+            case .string(let text)?:
+                if let data = text.data(using: .utf8),
+                   let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
+                    object = decoded
+                    self.text = nil
+                } else {
+                    object = nil
+                    self.text = text
+                }
+            default:
+                object = nil
+                text = nil
+            }
+        }
+
+        func string(_ key: String) -> String? {
+            if let object { return HermexAppsToolCall.string(object[key]) }
+            guard let text,
+                  let pattern = try? Regex("['\"]\(key)['\"]\\s*:\\s*['\"]([^'\"]*)['\"]"),
+                  let match = text.firstMatch(of: pattern)
+            else { return nil }
+            return match.output[1].substring.map(String.init)
+        }
+
+        func count(_ key: String) -> Int? {
+            if case .array(let items)? = object?[key] { return items.count }
+            return nil
+        }
+    }
+
+    fileprivate static func string(_ value: JSONValue?) -> String? {
+        if case .string(let string)? = value { return string }
+        return nil
     }
 }
 
@@ -49,78 +122,25 @@ struct AppBuildCall: Equatable {
     }
 
     init?(_ toolCall: ToolCall) {
-        // Hermes may defer MCP tools behind a generic `tool_call(name, arguments)`.
-        var name = toolCall.name ?? ""
-        var arguments: JSONValue? = toolCall.args.map(JSONValue.object)
-        if name == "tool_call" {
-            name = Self.string(toolCall.args?["name"]) ?? ""
-            arguments = toolCall.args?["arguments"]
-        }
-        guard name.contains("hermex_apps") else { return nil }
-        if name.hasSuffix("apps_create") {
+        guard let call = HermexAppsToolCall(toolCall) else { return nil }
+        if call.name.hasSuffix("apps_create") {
             kind = .create
-        } else if name.hasSuffix("apps_build") {
+        } else if call.name.hasSuffix("apps_build") {
             kind = .build
         } else {
             return nil
         }
-        let fields = Fields(arguments)
+        let fields = call.fields
         guard let appID = fields.string("app_id"), !appID.isEmpty else { return nil }
         self.appID = appID
         startedAt = toolCall.startedAt
         isCompleted = toolCall.isCompleted
         isError = toolCall.isError == true
-        self.name = fields.string("name")
+        name = fields.string("name")
         symbol = fields.string("symbol")
         color = fields.string("color")
         ink = fields.string("ink")
         routes = fields.count("routes")
-    }
-
-    /// Arguments as an object, or as the text the server keeps for settled
-    /// calls (JSON or Python-style, possibly cut short).
-    private struct Fields {
-        let object: [String: JSONValue]?
-        let text: String?
-
-        init(_ value: JSONValue?) {
-            switch value {
-            case .object(let object)?:
-                self.object = object
-                text = nil
-            case .string(let text)?:
-                if let data = text.data(using: .utf8),
-                   let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data) {
-                    object = decoded
-                    self.text = nil
-                } else {
-                    object = nil
-                    self.text = text
-                }
-            default:
-                object = nil
-                text = nil
-            }
-        }
-
-        func string(_ key: String) -> String? {
-            if let object { return AppBuildCall.string(object[key]) }
-            guard let text,
-                  let pattern = try? Regex("['\"]\(key)['\"]\\s*:\\s*['\"]([^'\"]*)['\"]"),
-                  let match = text.firstMatch(of: pattern)
-            else { return nil }
-            return match.output[1].substring.map(String.init)
-        }
-
-        func count(_ key: String) -> Int? {
-            if case .array(let items)? = object?[key] { return items.count }
-            return nil
-        }
-    }
-
-    private static func string(_ value: JSONValue?) -> String? {
-        if case .string(let string)? = value { return string }
-        return nil
     }
 }
 

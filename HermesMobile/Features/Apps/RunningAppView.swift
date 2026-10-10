@@ -9,8 +9,11 @@ struct RunningAppView: View {
     let entry: HermexAppEntry
     let hostApp: LCHostApp
     let library: AppLibrary
+    /// Set when the app opened for a route or highlights, e.g. by Hermes.
+    let opened: AppLibrary.OpenRequest?
     let showDetails: () -> Void
     let close: () -> Void
+    let backToChat: () -> Void
 
     @State private var launch = UUID()
     @State private var errorMessage: String?
@@ -23,6 +26,9 @@ struct RunningAppView: View {
     @State private var isShowingChat = false
     /// The app's thread with Hermes; kept while the app is open.
     @State private var chatModel: InAppChatModel
+    /// The "Opened by Hermes" banner, shown for a few seconds.
+    @State private var banner: AppLibrary.OpenRequest?
+    @State private var didShowOpened = false
     private let service: AppsService
     #if DEBUG
     @State private var isShowingBridgeInspector = false
@@ -35,15 +41,19 @@ struct RunningAppView: View {
         hostApp: LCHostApp,
         library: AppLibrary,
         server: URL,
+        opened: AppLibrary.OpenRequest? = nil,
         showDetails: @escaping () -> Void,
-        close: @escaping () -> Void
+        close: @escaping () -> Void,
+        backToChat: @escaping () -> Void
     ) {
         self.entry = entry
         self.hostApp = hostApp
         self.library = library
+        self.opened = opened
         service = AppsService(server: server)
         self.showDetails = showDetails
         self.close = close
+        self.backToChat = backToChat
         _buttonPlacement = State(initialValue: AgentButtonPlacement.load(appID: entry.app.id))
         _chatModel = State(initialValue: InAppChatModel(server: server, app: entry.app))
     }
@@ -109,6 +119,13 @@ struct RunningAppView: View {
             }
             .padding(.horizontal, 8)
 
+            if let banner {
+                OpenedByHermesBanner(request: banner, backToChat: backToChat)
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             Group {
                 if isUpdating {
                     VStack(spacing: 12) {
@@ -135,9 +152,11 @@ struct RunningAppView: View {
             .ignoresSafeArea(edges: .bottom)
         }
         .background(Theme.background.ignoresSafeArea())
+        .overlay(alignment: .bottom) { otherAppHandoff }
         .environment(\.colorScheme, .dark)
         .statusBarHidden(false)
         .onAppear(perform: connect)
+        .task(id: bridge.isConnected) { await showOpened() }
         .onDisappear {
             chatModel.suspend()
             bridge.invalidate()
@@ -150,6 +169,7 @@ struct RunningAppView: View {
             InAppChatSheet(model: chatModel, bridge: bridge, openFullChat: openFullChat) {
                 isShowingChat = false
             }
+            .overlay(alignment: .bottom) { otherAppHandoff }
             .presentationDetents([.height(520), .large])
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(26)
@@ -190,7 +210,13 @@ extension RunningAppView {
         library.runningAppID = appID
         library.onRunningAppEvent = { event in
             Task {
-                await bridge.refresh(event.route)
+                if event.kind == "open" {
+                    if let route = event.route, !route.isEmpty {
+                        _ = await bridge.open(route)
+                    }
+                } else {
+                    await bridge.refresh(event.route)
+                }
                 if let ids = event.highlight, !ids.isEmpty {
                     await bridge.highlight(ids)
                 }
@@ -210,6 +236,36 @@ extension RunningAppView {
             } catch {
                 return HermexAPIReply(result: nil, error: error.localizedDescription, offline: false)
             }
+        }
+    }
+
+    /// Once the app connects, goes to the route it was opened for, outlines
+    /// the rows, and shows Hermes' banner for a few seconds.
+    fileprivate func showOpened() async {
+        guard bridge.isConnected, let opened, !didShowOpened else { return }
+        didShowOpened = true
+        if let route = opened.route, !route.isEmpty {
+            _ = await bridge.open(route)
+        }
+        if !opened.highlight.isEmpty {
+            // Let the route's screen load its rows first.
+            try? await Task.sleep(for: .milliseconds(600))
+            await bridge.highlight(opened.highlight)
+        }
+        guard opened.byHermes else { return }
+        withAnimation(.easeOut(duration: 0.25)) { banner = opened }
+        try? await Task.sleep(for: .seconds(8))
+        withAnimation(.easeIn(duration: 0.25)) { banner = nil }
+    }
+
+    /// Hermes' request to open a different app, over this one.
+    @ViewBuilder
+    fileprivate var otherAppHandoff: some View {
+        if let handoff = library.pendingHandoff, handoff.appID != entry.app.id {
+            AppHandoffCard(handoff: handoff, library: library)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 24)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 

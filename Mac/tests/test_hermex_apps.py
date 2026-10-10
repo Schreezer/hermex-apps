@@ -189,6 +189,33 @@ class MCPTests(AppsTestCase):
         events, last = store.events_after(0)
         self.assertEqual((events[-1]["kind"], events[-1]["route"], last), ("refresh", "home", 1))
 
+    def test_open_needs_a_built_app_and_a_real_route(self):
+        self.create()
+        reply = self.request("tools/call", {"name": "apps_open", "arguments": {"app_id": "chores"}})
+        self.assertIn("isn't built yet", reply["result"]["content"][0]["text"])
+        self.fake_build()
+        reply = self.request("tools/call", {"name": "apps_open", "arguments": {"app_id": "chores", "route": "settings"}}, msg_id=2)
+        self.assertIn("no route 'settings'", reply["result"]["content"][0]["text"])
+        reply = self.request("tools/call", {"name": "apps_open", "arguments": {
+            "app_id": "chores", "route": "/item/42/", "highlight": ["42"], "note": "Added bins",
+            "preview": [{"label": "Bins", "value": "Tonight"}, {"value": "no label"}],
+        }}, msg_id=3)
+        self.assertFalse(reply["result"]["isError"])
+        event = store.events_after(0)[0][-1]
+        self.assertEqual(
+            (event["kind"], event["route"], event["highlight"], event["note"], event["preview"]),
+            ("open", "item/42", ["42"], "Added bins", [{"label": "Bins", "value": "Tonight"}]),
+        )
+        self.request("tools/call", {"name": "apps_open", "arguments": {"app_id": "chores"}}, msg_id=4)
+        self.assertEqual(store.events_after(0)[0][-1]["route"], "home")
+
+    def test_routes_match_their_templates(self):
+        routes = ["home", "item/{id}"]
+        self.assertTrue(store.route_matches(routes, "item/a-1"))
+        self.assertFalse(store.route_matches(routes, "item/"))
+        self.assertFalse(store.route_matches(routes, "item/1/edit"))
+        self.assertFalse(store.route_matches(routes, "homes"))
+
     def test_unknown_methods_are_errors(self):
         self.assertEqual(self.request("resources/list")["error"]["code"], -32601)
 

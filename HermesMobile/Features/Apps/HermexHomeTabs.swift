@@ -46,8 +46,23 @@ struct HermexHomeTabs<Chats: View>: View {
                 .toolbarBackground(HermexAppsTheme.background, for: .tabBar)
             }
         }
+        // Hermes' request to open an app counts down here when no card in a
+        // chat shows it and no app is open (the open app shows its own).
+        .overlay(alignment: .bottom) {
+            if let handoff = library.pendingHandoff, library.visibleHandoffCards == 0, library.runningAppID == nil {
+                AppHandoffCard(handoff: handoff, library: library)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 90)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: library.pendingHandoff?.id)
         .onChange(of: chatsRequested) {
             if chatsRequested { tab = .chats }
+        }
+        // The "Opened by Hermes" banner's Chat button.
+        .onChange(of: library.chatRequest) {
+            if library.chatRequest != nil { tab = .chats }
         }
         // A build card's Open lands in Apps, which runs the app.
         .onChange(of: library.openRequest) {

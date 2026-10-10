@@ -339,6 +339,113 @@ final class AppLibraryMacTests: XCTestCase {
         XCTAssertEqual(library.openRequest?.appID, "chores")
     }
 
+    // MARK: Hermes opens apps
+
+    private static func openEvent(_ seq: Int, app: String = "chores", secondsAgo: Double = 0) -> AppsEvent {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return AppsEvent(
+            seq: seq, at: formatter.string(from: Date.now.addingTimeInterval(-secondsAgo)), kind: "open", app: app,
+            route: "item/42", highlight: ["42"], step: nil, state: nil, detail: nil, version: nil, isNew: nil,
+            note: "Added bins", preview: [AppsEvent.PreviewRow(label: "Bins", value: "Tonight")]
+        )
+    }
+
+    /// A library with Chores installed, whose next polls return these pages.
+    private func installedChores(_ pages: [AppsEventPage]) async throws -> (AppLibrary, FakeMac) {
+        let mac = FakeMac(registry: .success(AppsRegistry(apps: [try Self.remoteApp("chores", version: 1)], platform: "simulator")), events: pages)
+        let library = library(mac)
+        library.handoffCountdown = 0.1
+        await library.reload()
+        if let entry = library.entries.first { await library.install(entry) }
+        return (library, mac)
+    }
+
+    func testHermesOpensAnInstalledAppAfterTheCountdown() async throws {
+        let (library, _) = try await installedChores([AppsEventPage(events: [Self.openEvent(9)], last: 9)])
+        await library.pollEvents()
+        let handoff = try XCTUnwrap(library.pendingHandoff, "a fresh request counts down even on the first poll")
+        XCTAssertNotNil(handoff.opensAt)
+        XCTAssertEqual(handoff.preview.first?.label, "Bins")
+
+        try await Task.sleep(for: .milliseconds(400))
+        XCTAssertNil(library.pendingHandoff)
+        XCTAssertEqual(library.handoffs.last?.outcome, .opened)
+        let request = try XCTUnwrap(library.openRequest)
+        XCTAssertEqual(request.appID, "chores")
+        XCTAssertEqual(request.route, "item/42")
+        XCTAssertEqual(request.highlight, ["42"])
+        XCTAssertEqual(request.note, "Added bins")
+        XCTAssertTrue(request.byHermes)
+    }
+
+    func testStayHereCancelsTheCountdown() async throws {
+        let (library, _) = try await installedChores([AppsEventPage(events: [Self.openEvent(9)], last: 9)])
+        await library.pollEvents()
+        library.stay(try XCTUnwrap(library.pendingHandoff).id)
+        try await Task.sleep(for: .milliseconds(400))
+        XCTAssertNil(library.openRequest)
+        XCTAssertEqual(library.handoffs.last?.outcome, .stayed)
+    }
+
+    func testARequestForTheOpenAppJustGoesToTheRoute() async throws {
+        let (library, _) = try await installedChores([AppsEventPage(events: [Self.openEvent(9)], last: 9)])
+        var received: [AppsEvent] = []
+        library.runningAppID = "chores"
+        library.onRunningAppEvent = { received.append($0) }
+        await library.pollEvents()
+        XCTAssertEqual(received.map(\.kind), ["open"])
+        XCTAssertNil(library.pendingHandoff, "no card when the user is already in the app")
+        XCTAssertEqual(library.handoffs.last?.outcome, .alreadyOpen)
+    }
+
+    func testAnAppThatIsntInstalledWaitsForATap() async throws {
+        let mac = FakeMac(
+            registry: .success(AppsRegistry(apps: [try Self.remoteApp("chores", version: 1)], platform: "simulator")),
+            events: [AppsEventPage(events: [Self.openEvent(9)], last: 9)]
+        )
+        let library = library(mac)
+        library.handoffCountdown = 0.1
+        await library.reload()
+        await library.pollEvents()
+        let handoff = try XCTUnwrap(library.pendingHandoff)
+        XCTAssertNil(handoff.opensAt, "installing a new app needs the user's OK")
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertNil(library.openRequest)
+
+        await library.openHandoff(handoff.id)
+        XCTAssertEqual(mac.downloads, ["chores"])
+        XCTAssertEqual(library.openRequest?.route, "item/42")
+    }
+
+    func testRequestsThePhoneMissedDontOpen() async throws {
+        let (library, _) = try await installedChores([
+            AppsEventPage(events: [], last: 0),
+            AppsEventPage(events: [Self.openEvent(9, secondsAgo: 60)], last: 9)
+        ])
+        await library.pollEvents()
+        await library.pollEvents()
+        XCTAssertTrue(library.handoffs.isEmpty)
+    }
+
+    func testAChatsOpenCallFindsItsRequest() async throws {
+        let (library, _) = try await installedChores([AppsEventPage(events: [Self.openEvent(9)], last: 9)])
+        await library.pollEvents()
+        let now = Date.now.timeIntervalSince1970
+        XCTAssertEqual(library.handoff(appID: "chores", callIDs: ["live-1"], callStartedAt: now - 2)?.id, 9)
+        XCTAssertNil(library.handoff(appID: "chores", callIDs: ["old"], callStartedAt: now - 600), "an old call doesn't claim a new request")
+        XCTAssertNil(library.handoff(appID: "other", callIDs: ["x"], callStartedAt: now))
+        library.claimHandoff(9, callIDs: ["live-1", "call_abc"])
+        XCTAssertEqual(
+            library.handoff(appID: "chores", callIDs: ["call_abc"], callStartedAt: now + 3_600)?.id, 9,
+            "the settled copy, with no time of its own, finds the claim by the server's id"
+        )
+        library.openCardAppeared()
+        XCTAssertTrue(library.wantsEventsForCards, "an open card listens before its request arrives")
+        library.openCardDisappeared()
+        XCTAssertFalse(library.wantsEventsForCards)
+    }
+
     func testOnlyTheNewestBuildCallShowsACard() {
         let library = library(FakeMac(registry: .failure(.notSetUp)))
         library.buildCardAppeared(appID: "chores", callStartedAt: 10)
@@ -388,6 +495,23 @@ final class AppBuildCallTests: XCTestCase {
         XCTAssertNil(AppBuildCall(ToolCall(name: "mcp__hermex_apps__apps_list", preview: nil, args: ["app_id": .string("x")])))
         XCTAssertNil(AppBuildCall(ToolCall(name: "web_search", preview: nil, args: nil)))
         XCTAssertNil(AppBuildCall(ToolCall(name: "mcp__hermex_apps__apps_build", preview: nil, args: [:])))
+    }
+
+    func testOpenCallsAreRead() {
+        let calls = [
+            ToolCall(name: "mcp__hermex_apps__apps_open", preview: nil,
+                     args: ["app_id": .string("hyrox-noida"), "route": .string("week"), "note": .string("Logged Monday's run")], startedAt: 7),
+            ToolCall(name: "tool_call", preview: nil,
+                     args: ["name": .string("mcp__hermex_apps__apps_open"), "arguments": .string("{'app_id': 'chores', 'route': 'ho...")]),
+            ToolCall(name: "mcp__hermex_apps__apps_build", preview: nil, args: ["app_id": .string("chores")])
+        ]
+        let parsed = AppOpenCall.calls(in: calls)
+        XCTAssertEqual(parsed.map(\.appID), ["hyrox-noida", "chores"])
+        XCTAssertEqual(parsed.first?.route, "week")
+        XCTAssertEqual(parsed.first?.note, "Logged Monday's run")
+        XCTAssertNil(parsed.last?.route, "a cut-short value is left out")
+        XCTAssertTrue(AppToolCards.hasCards(in: [calls[0]]))
+        XCTAssertFalse(AppToolCards.hasCards(in: [ToolCall(name: "web_search", preview: nil, args: nil)]))
     }
 
     func testTheNewestCallPerAppWins() {

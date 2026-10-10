@@ -91,6 +91,18 @@ def write_record(record: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
+def route_matches(routes: list[str], route: str) -> bool:
+    """Whether `route` fills one of the app's route templates ('session/{id}')."""
+    parts = route.split("/")
+    for template in routes:
+        pattern = template.strip("/").split("/")
+        if len(pattern) == len(parts) and all(
+            (p.startswith("{") and p.endswith("}") and value) or p == value for p, value in zip(pattern, parts)
+        ):
+            return True
+    return False
+
+
 def app_ids() -> list[str]:
     root = home() / "apps"
     return sorted(p.name for p in root.iterdir() if (p / "app.json").is_file() and APP_ID_RE.match(p.name))

@@ -655,6 +655,7 @@
 		E7A1C0DE0000000000000514 /* InAppChatModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000513 /* InAppChatModel.swift */; };
 		E7A1C0DE0000000000000602 /* AppsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000601 /* AppsService.swift */; };
 		E7A1C0DE0000000000000604 /* AppBuildCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000603 /* AppBuildCard.swift */; };
+		E7A1C0DE0000000000000606 /* AppHandoffCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000605 /* AppHandoffCard.swift */; };
 		E7A1C0DE0000000000000516 /* InAppChatSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000515 /* InAppChatSheet.swift */; };
 		E7A1C0DE0000000000000522 /* InAppAgentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7A1C0DE0000000000000521 /* InAppAgentTests.swift */; };
 /* End PBXBuildFile section */
@@ -1458,6 +1459,7 @@
 		E7A1C0DE0000000000000513 /* InAppChatModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/InAppChatModel.swift; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000601 /* AppsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/AppsService.swift; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000603 /* AppBuildCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/AppBuildCard.swift; sourceTree = "<group>"; };
+		E7A1C0DE0000000000000605 /* AppHandoffCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/AppHandoffCard.swift; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000515 /* InAppChatSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Apps/InAppChatSheet.swift; sourceTree = "<group>"; };
 		E7A1C0DE0000000000000521 /* InAppAgentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InAppAgentTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -1911,6 +1913,7 @@
 				E7A1C0DE0000000000000513 /* InAppChatModel.swift */,
 				E7A1C0DE0000000000000601 /* AppsService.swift */,
 				E7A1C0DE0000000000000603 /* AppBuildCard.swift */,
+				E7A1C0DE0000000000000605 /* AppHandoffCard.swift */,
 				E7A1C0DE0000000000000511 /* InAppChatContext.swift */,
 				E7A1C0DE0000000000000501 /* AgentButton.swift */,
 				E7A1C0DE0000000000000411 /* GuestBridge.swift */,
@@ -2762,6 +2765,7 @@
 				E7A1C0DE0000000000000514 /* InAppChatModel.swift in Sources */,
 				E7A1C0DE0000000000000602 /* AppsService.swift in Sources */,
 				E7A1C0DE0000000000000604 /* AppBuildCard.swift in Sources */,
+				E7A1C0DE0000000000000606 /* AppHandoffCard.swift in Sources */,
 				E7A1C0DE0000000000000512 /* InAppChatContext.swift in Sources */,
 				E7A1C0DE0000000000000502 /* AgentButton.swift in Sources */,
 				E7A1C0DE0000000000000412 /* GuestBridge.swift in Sources */,

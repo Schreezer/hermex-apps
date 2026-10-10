@@ -102,6 +102,15 @@ how it is wired, what we changed in the vendored copy, and how to update it.
 - Guests call their own API with `HermexAppKit.fetch` / `perform`; the call
   crosses the bridge (`HermexHostXPC.callAPI`) and `RunningAppView` forwards it
   to that app's tools only.
+- `apps_open` (step 8): the MCP tool checks the route against the app's
+  templates and emits an `open` event (route, highlight, note, preview). The
+  phone's `AppLibrary` turns a fresh one (under 20 s old) into a `Handoff`:
+  a 2 s countdown when the app is installed and VoiceOver is off, otherwise a
+  tap. If that app is already open it just goes to the route. The card shows
+  under the call in chat (`AppOpenCard`, matched to its request by time, then
+  by tool-call id once settled), over another open app, or floating over the
+  home when neither is on screen. `RunningAppView` opens the route once the
+  guest connects, outlines the ids, and shows `OpenedByHermesBanner` for 8 s.
 - `AppBuildCard` (screen 04) appears under the tool-call group holding Hermes'
   newest `apps_create` / `apps_build` for an app, also when tool cards are
   hidden or the turn is folded. Hermes may defer MCP tools behind a generic

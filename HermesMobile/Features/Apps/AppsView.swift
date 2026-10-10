@@ -10,6 +10,8 @@ struct AppsView: View {
     @State private var query = ""
     @State private var path: [String] = []
     @State private var running: HermexAppEntry?
+    /// What the running app was opened for: a route, highlights, Hermes' banner.
+    @State private var opened: AppLibrary.OpenRequest?
     @State private var isVisible = false
 
     private typealias Theme = HermexAppsTheme
@@ -52,7 +54,10 @@ struct AppsView: View {
                 if let entry = library.entries.first(where: { $0.id == id }) {
                     AppDetailView(
                         entry: entry,
-                        open: { running = entry },
+                        open: {
+                            opened = nil
+                            running = entry
+                        },
                         install: { Task { await library.install(entry) } },
                         installProgress: library.installing[entry.id],
                         askForChange: { askHermes(String(localized: "Change \(entry.app.name): ")) },
@@ -74,7 +79,7 @@ struct AppsView: View {
             openRequestedApp()
         }
         .onDisappear { isVisible = false }
-        .onChange(of: library.openRequest) { if isVisible { openRequestedApp() } }
+        .onChange(of: library.openRequest) { if isVisible || running != nil { openRequestedApp() } }
         .alert(Text("Couldn't install the app"), isPresented: Binding(
             get: { library.installFailure != nil && running == nil },
             set: { if !$0 { library.installFailure = nil } }
@@ -90,11 +95,16 @@ struct AppsView: View {
                     hostApp: hostApp,
                     library: library,
                     server: server,
+                    opened: opened?.appID == entry.id ? opened : nil,
                     showDetails: {
                         running = nil
                         path = [entry.id]
                     },
-                    close: { running = nil }
+                    close: { running = nil },
+                    backToChat: {
+                        running = nil
+                        library.chatRequest = UUID()
+                    }
                 )
             }
         }
@@ -215,13 +225,25 @@ struct AppsView: View {
 
     // MARK: - Install, open
 
-    /// Runs the app a build card asked for.
+    /// Runs the app a card in chat or Hermes asked for, in place of any other
+    /// app that is open.
     private func openRequestedApp() {
         guard let request = library.openRequest else { return }
         library.openRequest = nil
         guard let entry = library.entries.first(where: { $0.id == request.appID }), entry.isInstalled else { return }
         path.removeAll()
-        running = entry
+        guard let current = running, current.id != entry.id else {
+            opened = request
+            running = entry
+            return
+        }
+        // Close the open app first; one full-screen cover replaces another.
+        running = nil
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            opened = request
+            running = entry
+        }
     }
 
     private enum Action {
@@ -248,7 +270,9 @@ struct AppsView: View {
     /// Open runs the app; Install is the user's OK for a new app (updates install by themselves).
     private func perform(_ entry: HermexAppEntry) {
         switch action(for: entry) {
-        case .open: running = entry
+        case .open:
+            opened = nil
+            running = entry
         case .install: Task { await library.install(entry) }
         case .installing, .unavailable: break
         }

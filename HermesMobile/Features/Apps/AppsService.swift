@@ -209,6 +209,14 @@ struct AppsEvent: Decodable, Hashable, Sendable {
     let detail: String?
     let version: Int?
     let isNew: Bool?
+    /// `open`: a few words for the banner and rows for the card's preview.
+    var note: String? = nil
+    var preview: [PreviewRow]? = nil
+
+    struct PreviewRow: Decodable, Hashable, Sendable {
+        let label: String
+        var value: String? = nil
+    }
 }
 
 struct AppsEventPage: Decodable, Sendable {

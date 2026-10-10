@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 import LiveContainerSwiftUI
 
 /// The Apps tab's model: the Mac's registry joined with the container's
@@ -34,7 +35,8 @@ final class AppLibrary {
     private(set) var updatesWaitingForRestart: Set<String> = []
     /// The app open full screen. It can't be replaced while it runs.
     var runningAppID: String?
-    /// Hermes changed the open app's data (a `refresh` event for `runningAppID`).
+    /// Hermes changed the open app's data or asked to show a route in it (a
+    /// `refresh` or `open` event for `runningAppID`).
     @ObservationIgnored var onRunningAppEvent: (@MainActor (AppsEvent) -> Void)?
     /// What the Mac reported about each app's latest build, by app id.
     private(set) var builds: [String: BuildProgress] = [:]
@@ -44,10 +46,22 @@ final class AppLibrary {
     private(set) var visibleBuildCards = 0
     /// For each app, when the newest build call that shows a card started.
     private(set) var buildCardAnchors: [String: Double] = [:]
+    /// Hermes' recent requests to open an app (`apps_open`), oldest first.
+    private(set) var handoffs: [Handoff] = []
+    /// Which request each `apps_open` call in chat made, by tool-call id.
+    private(set) var handoffClaims: [String: Int] = [:]
+    /// Opening cards in chat on screen; while there are any, the library
+    /// follows events so Hermes' request reaches them.
+    private(set) var visibleOpenCards = 0
+    /// Of those, the ones showing the pending request's countdown.
+    private(set) var visibleHandoffCards = 0
+    /// Set when the "Opened by Hermes" banner's Chat button asks for Chats.
+    var chatRequest: UUID?
 
     private var remote: [HermexApp] = []
     private var installed: [String: LCHostApp] = [:]
     private var cursor: Int?
+    private var countdown: Task<Void, Never>?
     private let backend: AppLibraryBackend
 
     init(backend: AppLibraryBackend = .offline) {
@@ -170,10 +184,15 @@ final class AppLibrary {
     struct OpenRequest: Equatable {
         let id = UUID()
         let appID: String
+        var route: String? = nil
+        var highlight: [String] = []
+        var note: String? = nil
+        /// Hermes opened it: the app shows the "Opened by Hermes" banner.
+        var byHermes = false
     }
 
-    /// Whether the library should follow the Mac's events for a build card.
-    var wantsEventsForCards: Bool { visibleBuildCards > 0 }
+    /// Whether the library should follow the Mac's events for a card in chat.
+    var wantsEventsForCards: Bool { visibleBuildCards > 0 || visibleOpenCards > 0 }
 
     func buildCardAppeared(appID: String, callStartedAt: Double) {
         visibleBuildCards += 1
@@ -193,12 +212,19 @@ final class AppLibrary {
 
     /// Opens the app full screen in the Apps tab, installing it first if it is
     /// new (the tap is the user's OK).
-    func open(appID: String) async {
-        if let entry = entries.first(where: { $0.id == appID }), !entry.isInstalled {
+    func open(_ request: OpenRequest) async {
+        if entries.first(where: { $0.id == request.appID }) == nil {
+            await reload()
+        }
+        if let entry = entries.first(where: { $0.id == request.appID }), !entry.isInstalled {
             await install(entry)
         }
-        guard entries.first(where: { $0.id == appID })?.isInstalled == true else { return }
-        openRequest = OpenRequest(appID: appID)
+        guard entries.first(where: { $0.id == request.appID })?.isInstalled == true else { return }
+        openRequest = request
+    }
+
+    func open(appID: String) async {
+        await open(OpenRequest(appID: appID))
     }
 
     func cancelBuild(appID: String) async {
@@ -206,6 +232,132 @@ final class AppLibrary {
             try await backend.cancelBuild(appID)
         } catch {
             installFailure = InstallFailure(appID: appID, message: error.localizedDescription)
+        }
+    }
+
+    // MARK: - Hermes opens apps
+
+    /// Hermes asked to open an app (`apps_open`). It opens after a short
+    /// countdown unless the user taps Stay here; an app that isn't installed
+    /// waits for the user's OK instead.
+    struct Handoff: Equatable, Identifiable {
+        enum Outcome: Equatable {
+            case pending
+            case opened
+            case stayed
+            /// The user was already in the app: it just went to the route.
+            case alreadyOpen
+        }
+
+        /// The event's sequence number.
+        let id: Int
+        let appID: String
+        let route: String
+        let highlight: [String]
+        let note: String?
+        let preview: [AppsEvent.PreviewRow]
+        let requestedAt: Date
+        /// When it opens by itself; nil when it waits for a tap (the app isn't
+        /// installed yet, or VoiceOver is running).
+        let opensAt: Date?
+        var outcome: Outcome = .pending
+
+        var request: OpenRequest {
+            OpenRequest(appID: appID, route: route, highlight: highlight, note: note, byHermes: true)
+        }
+    }
+
+    /// Seconds before Hermes' request opens the app by itself.
+    @ObservationIgnored var handoffCountdown = 2.0
+    /// Requests older than this when they arrive were missed; they don't open.
+    static let handoffFreshness = 20.0
+
+    var pendingHandoff: Handoff? {
+        handoffs.last { $0.outcome == .pending }
+    }
+
+    /// The request a chat's `apps_open` call made. A live call finds it by
+    /// time (same app, arriving soon after) and claims it, because the call's
+    /// settled copy from the server carries no time.
+    func handoff(appID: String, callIDs: [String], callStartedAt: Double) -> Handoff? {
+        if let id = callIDs.lazy.compactMap({ self.handoffClaims[$0] }).first {
+            return handoffs.first { $0.id == id }
+        }
+        return handoffs.last {
+            $0.appID == appID
+                && $0.requestedAt.timeIntervalSince1970 >= callStartedAt - 5
+                && $0.requestedAt.timeIntervalSince1970 <= callStartedAt + 120
+        }
+    }
+
+    func claimHandoff(_ id: Int, callIDs: [String]) {
+        for callID in callIDs where handoffClaims[callID] == nil {
+            handoffClaims[callID] = id
+        }
+    }
+
+    func openCardAppeared() {
+        visibleOpenCards += 1
+    }
+
+    func openCardDisappeared() {
+        visibleOpenCards = max(0, visibleOpenCards - 1)
+    }
+
+    func handoffCardAppeared() {
+        visibleHandoffCards += 1
+    }
+
+    func handoffCardDisappeared() {
+        visibleHandoffCards = max(0, visibleHandoffCards - 1)
+    }
+
+    func openHandoff(_ id: Int) async {
+        guard let index = handoffs.firstIndex(where: { $0.id == id }), handoffs[index].outcome == .pending else { return }
+        countdown?.cancel()
+        handoffs[index].outcome = .opened
+        await open(handoffs[index].request)
+    }
+
+    func stay(_ id: Int) {
+        guard let index = handoffs.firstIndex(where: { $0.id == id }), handoffs[index].outcome == .pending else { return }
+        countdown?.cancel()
+        handoffs[index].outcome = .stayed
+    }
+
+    private func receiveOpen(_ event: AppsEvent) {
+        guard let appID = event.app else { return }
+        let requestedAt = event.at.flatMap(BuildProgress.parseDate) ?? .now
+        guard Date.now.timeIntervalSince(requestedAt) < Self.handoffFreshness else { return }
+        // A newer request replaces one still counting down.
+        countdown?.cancel()
+        for index in handoffs.indices where handoffs[index].outcome == .pending {
+            handoffs[index].outcome = .stayed
+        }
+        let isInstalled = entries.first { $0.id == appID }?.isInstalled == true
+        let autoOpens = isInstalled && !backend.isVoiceOverRunning()
+        var handoff = Handoff(
+            id: event.seq,
+            appID: appID,
+            route: event.route ?? "",
+            highlight: event.highlight ?? [],
+            note: event.note,
+            preview: event.preview ?? [],
+            requestedAt: requestedAt,
+            opensAt: autoOpens ? Date.now.addingTimeInterval(handoffCountdown) : nil
+        )
+        if appID == runningAppID {
+            handoff.outcome = .alreadyOpen
+            onRunningAppEvent?(event)
+        }
+        handoffs = Array((handoffs + [handoff]).suffix(20))
+        guard handoff.outcome == .pending, autoOpens else { return }
+        let id = handoff.id
+        let seconds = handoffCountdown
+        countdown = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled else { return }
+            await self?.openHandoff(id)
         }
     }
 
@@ -233,7 +385,13 @@ final class AppLibrary {
             if status != .ready {
                 await reload()
             }
-            guard !isFirstPoll else { return }
+            guard !isFirstPoll else {
+                // A chat's opening card can start the first poll; its request is fresh.
+                for event in page.events where event.kind == "open" {
+                    receiveOpen(event)
+                }
+                return
+            }
             var needsReload = false
             for event in page.events {
                 switch event.kind {
@@ -241,6 +399,8 @@ final class AppLibrary {
                     needsReload = true
                 case "refresh" where event.app == runningAppID:
                     onRunningAppEvent?(event)
+                case "open":
+                    receiveOpen(event)
                 default:
                     break
                 }
@@ -323,6 +483,7 @@ struct AppLibraryBackend {
     var installIPA: @MainActor (URL) async throws -> LCHostApp
     var removeApp: @MainActor (LCHostApp) throws -> Void
     var samples: @MainActor () -> [HermexApp]
+    var isVoiceOverRunning: @MainActor () -> Bool = { UIAccessibility.isVoiceOverRunning }
 
     static func live(_ service: AppsService) -> AppLibraryBackend {
         AppLibraryBackend(

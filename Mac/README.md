@@ -21,7 +21,7 @@ Mac/
 
 - **Hermes** talks to the `hermex-apps` stdio MCP server. Fixed tools run the
   factory (`apps_create`, `apps_build`, `apps_set_info`, `apps_list`,
-  `apps_refresh`). Each app adds its own data tools under its prefix
+  `apps_refresh`) and open apps on the phone (`apps_open`). Each app adds its own data tools under its prefix
   (`hyrox_noida_log_session`), and the server sends `tools/list_changed` when
   they change, so a new app needs no restart.
 - **Each app's data** lives on the Mac in `apps/<id>/data.sqlite`, behind the

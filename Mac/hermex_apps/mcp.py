@@ -78,6 +78,30 @@ FIXED_TOOLS: list[dict[str, Any]] = [
         ),
     },
     {
+        "name": "apps_open",
+        "description": "Open an app on the user's phone at a route, to show them something. The phone shows an "
+                       "'Opening …' card with a 2 s countdown and a Stay here button, then the app with an "
+                       "'Opened by Hermes' banner and the highlight ids outlined. If the app is already open there, "
+                       "it just goes to the route. Only built, installed apps open.",
+        "inputSchema": _schema(
+            {
+                "app_id": {"type": "string"},
+                "route": {"type": "string", "description": "One of the app's routes with its parameters filled in, "
+                                                           "e.g. 'today' or 'session/w01-s02'. Empty opens the first route."},
+                "highlight": {**_STRING_LIST, "description": "Ids of rows to outline, as the app's tools return them."},
+                "note": {"type": "string", "description": "A few words for the banner, e.g. 'Logged Monday's run'."},
+                "preview": {
+                    "type": "array", "maxItems": 4,
+                    "description": "Up to 4 rows for the card's preview of what they'll see, e.g. "
+                                   "[{'label': 'Easy run', 'value': '5 km · RPE 4'}].",
+                    "items": {"type": "object", "properties": {"label": {"type": "string"}, "value": {"type": "string"}},
+                              "required": ["label"], "additionalProperties": False},
+                },
+            },
+            ["app_id"],
+        ),
+    },
+    {
         "name": "apps_refresh",
         "description": "Ask the app, if it is open on the phone, to reload and outline the given ids. "
                        "Data tools that change data already do this.",
@@ -205,12 +229,33 @@ class Server:
             )
             return {"steps": steps, "version": record["version"], "ipa": record["ipa"],
                     "next": "The phone shows the update in Apps. New apps need the user to tap Install."}
+        if name == "apps_open":
+            return self._open(args)
         if name == "apps_refresh":
             app_id = store.check_id(args.get("app_id", ""))
             store.read_record(app_id)
             store.emit("refresh", app_id, route=args.get("route"), highlight=list(args.get("highlight") or [])[:20])
             return {"ok": True}
         return self._app_tool(name, args)
+
+    def _open(self, args: dict[str, Any]) -> dict[str, Any]:
+        app_id = store.check_id(args.get("app_id", ""))
+        record = store.read_record(app_id)
+        if store.ipa_info(app_id) is None:
+            raise AppsError(f"{record['name']} isn't built yet. Call apps_build first.", 409)
+        routes = record.get("routes") or []
+        route = (args.get("route") or "").strip().strip("/") or (routes[0] if routes else "")
+        if routes and not store.route_matches(routes, route):
+            raise AppsError(f"{record['name']} has no route {route!r}. Its routes: {', '.join(routes)}.")
+        preview = [
+            {"label": str(row.get("label", ""))[:60], "value": str(row.get("value", ""))[:40]}
+            for row in (args.get("preview") or [])[:4] if isinstance(row, dict) and row.get("label")
+        ]
+        store.emit("open", app_id, route=route, highlight=[str(i) for i in (args.get("highlight") or [])][:20],
+                   note=(args.get("note") or "").strip()[:80] or None, preview=preview or None)
+        return {"ok": True, "route": route,
+                "next": f"The phone opens {record['name']} after a 2 s countdown unless the user taps Stay here. "
+                        "Tell them in a sentence what they'll see."}
 
     def _list(self) -> list[dict[str, Any]]:
         apps = []

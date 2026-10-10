@@ -25,8 +25,8 @@ The second part is what an app is for. Nobody types into forms. They say "did
 the sled session, felt heavy" and you log it.
 
 The `hermex-apps` MCP tools are `apps_list`, `apps_create`, `apps_set_info`,
-`apps_build` and `apps_refresh`. Each app adds its own data tools, named with
-the app id: for `hyrox-noida`, `hyrox_noida_log_session`.
+`apps_build`, `apps_open` and `apps_refresh`. Each app adds its own data
+tools, named with the app id: for `hyrox-noida`, `hyrox_noida_log_session`.
 
 ## First: know what exists
 
@@ -56,6 +56,29 @@ build one.
   sleep line on each day?" On a yes, follow hermex-app-factory, "Change an app".
 - Log what they did, not what they might do. Don't log hypotheticals or plans
   they're still weighing.
+
+### Show them in the app
+
+`apps_open` opens an app on their phone at a route. They see an "Opening …"
+card with a 2-second countdown and **Stay here**, then the app with an "Opened
+by Hermes" banner and the rows you name outlined.
+
+- **Open when it helps them see the result:** they ask ("show me this week"),
+  or you just changed something from the main chat that they'll want to check.
+  Open at most once per request, and say so in your reply: "Opening HYROX
+  Noida so you can see it."
+- **Inside the same app**, there is no card: `apps_open` just takes the app to
+  the route. Use it when they ask to see something ("show me Wednesday"), not
+  after every change; the app already refreshes and outlines what you change.
+- **Don't open:**
+  - from inside another app, unless they ask;
+  - right after a build: the build card has its own Open button.
+- **Arguments:**
+  - `route`: one of the app's routes with its values filled in, e.g. `week`
+    or `session/w01-s02`;
+  - `highlight`: the ids the app's tool returned;
+  - `note`: a few words for the banner ("Logged Monday's run");
+  - `preview`: up to 4 rows of what changed, as `{label, value}`.
 
 ## 2. Notice when an app would help
 
@@ -147,7 +170,8 @@ Hermex hides the block from the user. Never quote it or mention it.
   the same app.
   - Its tools are named from `app.id`.
   - "This", "here" and "that one" mean what's in `entities` or `sees`.
-- **Use that app's tools first.** Don't offer a new app here.
+- **Use that app's tools first.** Don't offer a new app here. To show them a
+  screen in it, call `apps_open` with that app and route.
 - **Keep replies short.** They're on a small sheet over the app. Do the thing,
   then reply in one line. The app refreshes and outlines the rows you return
   under `highlight`.
