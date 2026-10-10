@@ -7,6 +7,7 @@ import Observation
 ///     HermexAppKit.registerRoutes(["today", "history", "lift/{id}"])
 ///     HermexAppKit.onOpen { route in router.go(route) }
 ///     HermexAppKit.onRefresh { _ in store.reload() }
+///     let items: [Item] = try await HermexAppKit.fetch("items")   // the app's API on the Mac
 ///     // on every screen change:
 ///     HermexAppKit.reportContext(route: "today", breadcrumb: ["Today", "Legs"], entities: [...])
 @MainActor
@@ -102,6 +103,12 @@ final class HermexGuestClient {
 
     private var host: HermexHostXPC? {
         connection?.remoteObjectProxyWithErrorHandler { _ in } as? HermexHostXPC
+    }
+
+    /// The host proxy for a call that waits on a reply: `onError` runs instead
+    /// of the reply when the connection breaks.
+    func host(onError: @escaping @Sendable (Error) -> Void) -> HermexHostXPC? {
+        connection?.remoteObjectProxyWithErrorHandler(onError) as? HermexHostXPC
     }
 
     /// LiveProcess keeps the launch info it received from the host on its

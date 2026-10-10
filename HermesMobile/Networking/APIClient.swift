@@ -161,6 +161,53 @@ actor APIClient {
         return try await sendPreparedRequest(request)
     }
 
+    /// A request to a webui extension's loopback sidecar, which the webui proxies at
+    /// `/api/extensions/<id>/sidecar/<path>` (Hermex Apps' Mac service). The proxy
+    /// only admits requests with provenance headers. Hermex is a native client, not a
+    /// page on some site, so it says `Sec-Fetch-Site: none` and sends no `Origin`:
+    /// with an `Origin`, the webui would treat it as a browser and want the page's
+    /// CSRF token. Non-2xx responses are returned, not thrown, because the proxy and
+    /// the sidecar both answer with `{"error": …}` bodies the caller maps; 401 still
+    /// throws `.unauthorized`.
+    func sendSidecar(
+        extensionID: String,
+        path: String,
+        queryItems: [URLQueryItem] = [],
+        method: String = "GET",
+        body: Data? = nil,
+        accept: String = "application/json",
+        timeout: TimeInterval? = nil
+    ) async throws -> (Data, HTTPURLResponse) {
+        var url = baseURL.appending(path: "api/extensions/\(extensionID)/sidecar/\(path)")
+        if !queryItems.isEmpty { url.append(queryItems: queryItems) }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        if let timeout { request.timeoutInterval = timeout }
+        customHeaderProvider().apply(to: &request)
+        request.setValue(accept, forHTTPHeaderField: "Accept")
+        request.setValue("none", forHTTPHeaderField: "Sec-Fetch-Site")
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body
+        }
+        return try await sendPreparedRequest(request, requireSuccess: false)
+    }
+
+    /// Grants or revokes the webui's consent to proxy an extension's sidecar
+    /// (`POST /api/extensions/sidecar-proxy-consent`). Like `sendSidecar`, a non-2xx
+    /// answer is returned for the caller to map.
+    func setSidecarProxyConsent(extensionID: String, approved: Bool) async throws -> (Data, HTTPURLResponse) {
+        var request = URLRequest(url: baseURL.appending(path: "api/extensions/sidecar-proxy-consent"))
+        request.httpMethod = "POST"
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        customHeaderProvider().apply(to: &request)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["id": extensionID, "approved": approved])
+        return try await sendPreparedRequest(request, requireSuccess: false)
+    }
+
     /// A file GET that reads at most `limit` bytes, with `sendData`'s custom headers,
     /// redirect guard and `APIError` mapping. A 2xx `Content-Length` over the limit
     /// throws `BotArtifactFailure.tooLarge` before the body is read, and a body

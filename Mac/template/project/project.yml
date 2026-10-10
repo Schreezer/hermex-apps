@@ -1,0 +1,33 @@
+# __APP_NAME__, built by Hermes with the Hermex Apps factory.
+name: __TARGET__
+options:
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  HermexAppKit:
+    path: __HERMEXAPPKIT__
+targets:
+  __TARGET__:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: HermexAppKit
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: __APP_NAME__
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: __BUNDLE_ID__
+        MARKETING_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGNING_ALLOWED: "NO"

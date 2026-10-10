@@ -1,0 +1,16 @@
+{
+  "extensions": [
+    {
+      "id": "hermex-apps",
+      "name": "Hermex Apps",
+      "description": "Lets Hermex on your iPhone install and run the apps Hermes builds on this Mac.",
+      "scripts": [],
+      "stylesheets": [],
+      "sidecar": {
+        "type": "loopback",
+        "origin": "http://127.0.0.1:8790",
+        "health_path": "/health"
+      }
+    }
+  ]
+}

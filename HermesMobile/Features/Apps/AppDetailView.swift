@@ -4,6 +4,10 @@ import SwiftUI
 struct AppDetailView: View {
     let entry: HermexAppEntry
     let open: () -> Void
+    /// Installs the Mac's build; the user's OK for a new app.
+    let install: () -> Void
+    /// Download progress while installing.
+    let installProgress: Double?
     let askForChange: () -> Void
     let remove: () throws -> Void
 
@@ -11,6 +15,23 @@ struct AppDetailView: View {
     @State private var removeError: String?
 
     private typealias Theme = HermexAppsTheme
+
+    private var canAct: Bool {
+        installProgress == nil && (entry.isInstalled || entry.downloadFitsThisDevice)
+    }
+
+    @ViewBuilder
+    private var primaryLabel: some View {
+        if let installProgress {
+            Text(installProgress, format: .percent.precision(.fractionLength(0)))
+        } else if entry.isInstalled {
+            Text("Open")
+        } else if entry.downloadFitsThisDevice {
+            Text("Install")
+        } else {
+            Text("Not installed")
+        }
+    }
 
     var body: some View {
         let app = entry.app
@@ -26,8 +47,8 @@ struct AppDetailView: View {
                         Text(app.origin.map { "\($0) · v\(app.version)" } ?? String(localized: "Built by Hermes for you · v\(app.version)"))
                             .font(Theme.body(13, relativeTo: .footnote))
                             .foregroundStyle(Theme.muted)
-                        Button(action: open) {
-                            Text(entry.isInstalled ? "Open" : "Not installed")
+                        Button(action: entry.isInstalled ? open : install) {
+                            primaryLabel
                                 .font(Theme.body(15, weight: .semibold))
                                 .foregroundStyle(Color(hex: app.ink))
                                 .padding(.horizontal, 22)
@@ -36,8 +57,8 @@ struct AppDetailView: View {
                                 .frame(minHeight: 44)
                         }
                         .buttonStyle(.plain)
-                        .disabled(!entry.isInstalled)
-                        .opacity(entry.isInstalled ? 1 : 0.5)
+                        .disabled(!canAct)
+                        .opacity(canAct ? 1 : 0.5)
                         .padding(.top, 2)
                     }
                     Spacer(minLength: 0)
@@ -127,7 +148,11 @@ struct AppDetailView: View {
                 }
             }
         } message: {
-            Text("This deletes the app and its data from this iPhone.")
+            if entry.app.download != nil {
+                Text("This removes the app from this iPhone. Its data stays on your Mac, and you can install it again from Apps.")
+            } else {
+                Text("This deletes the app and its data from this iPhone.")
+            }
         }
         .alert(Text("Couldn't remove \(app.name)"), isPresented: Binding(
             get: { removeError != nil },

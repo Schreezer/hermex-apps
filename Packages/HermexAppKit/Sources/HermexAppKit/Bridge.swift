@@ -71,6 +71,24 @@ public struct HermexContext: Codable, Hashable, Sendable {
     func guestDidRegister(_ registration: Data)
     /// JSON `HermexContext`.
     func guestDidReportContext(_ context: Data)
+    /// Runs one of the app's data tools on the Mac. `arguments` is a JSON
+    /// object; the reply is a JSON `HermexAPIReply`.
+    func callAPI(_ tool: String, arguments: Data, reply: @escaping (Data) -> Void)
+}
+
+/// The host's answer to `callAPI`: the tool's result, or why there is none.
+public struct HermexAPIReply: Codable, Sendable {
+    /// The tool's JSON result, re-encoded.
+    public let result: Data?
+    public let error: String?
+    /// True when the Mac could not be reached, so a cached answer is acceptable.
+    public let offline: Bool
+
+    public init(result: Data?, error: String?, offline: Bool) {
+        self.result = result
+        self.error = error
+        self.offline = offline
+    }
 }
 
 /// Implemented by the guest; the host calls it.

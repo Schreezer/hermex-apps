@@ -3,30 +3,45 @@ import HermexAppKit
 import LiveContainerSwiftUI
 
 /// Screen 07: a built app full screen in its own style under a thin Hermex
-/// bar. The floating Hermes button joins in build step 5.
+/// bar, with the floating Hermes button. The app's data calls go to the Mac
+/// through `bridge`, and Hermes' changes to its data refresh it.
 struct RunningAppView: View {
     let entry: HermexAppEntry
     let hostApp: LCHostApp
+    let library: AppLibrary
     let showDetails: () -> Void
     let close: () -> Void
 
     @State private var launch = UUID()
     @State private var errorMessage: String?
+    /// Installing a newer build: the app is stopped meanwhile.
+    @State private var isUpdating = false
+    @State private var updateError: String?
     /// The app's HermexAppKit connection; one per screen, reused across restarts.
     @State private var bridge = GuestBridge()
     @State private var buttonPlacement: AgentButtonPlacement
     @State private var isShowingChat = false
     /// The app's thread with Hermes; kept while the app is open.
     @State private var chatModel: InAppChatModel
+    private let service: AppsService
     #if DEBUG
     @State private var isShowingBridgeInspector = false
     #endif
 
     private typealias Theme = HermexAppsTheme
 
-    init(entry: HermexAppEntry, hostApp: LCHostApp, server: URL, showDetails: @escaping () -> Void, close: @escaping () -> Void) {
+    init(
+        entry: HermexAppEntry,
+        hostApp: LCHostApp,
+        library: AppLibrary,
+        server: URL,
+        showDetails: @escaping () -> Void,
+        close: @escaping () -> Void
+    ) {
         self.entry = entry
         self.hostApp = hostApp
+        self.library = library
+        service = AppsService(server: server)
         self.showDetails = showDetails
         self.close = close
         _buttonPlacement = State(initialValue: AgentButtonPlacement.load(appID: entry.app.id))
@@ -36,11 +51,25 @@ struct RunningAppView: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                Text(entry.app.name)
-                    .font(Theme.body(13, weight: .medium, relativeTo: .footnote))
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(1)
-                    .padding(.horizontal, 100)
+                if library.updatesWaitingForRestart.contains(entry.app.id) && !isUpdating {
+                    Button { Task { await applyUpdate() } } label: {
+                        Text("Restart to update")
+                            .font(Theme.body(13, weight: .semibold, relativeTo: .footnote))
+                            .foregroundStyle(Theme.onAccent)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 28)
+                            .background(Theme.accent, in: Capsule())
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(Text("Installs the new version Hermes built and reopens the app"))
+                } else {
+                    Text(entry.app.name)
+                        .font(Theme.body(13, weight: .medium, relativeTo: .footnote))
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                        .padding(.horizontal, 100)
+                }
                 HStack {
                     Button(action: close) {
                         HStack(spacing: 2) {
@@ -80,10 +109,23 @@ struct RunningAppView: View {
             }
             .padding(.horizontal, 8)
 
-            ContainerAppHost(hostApp: hostApp, launchInfo: bridge.launchInfo, onExit: close) { error in
-                errorMessage = error.localizedDescription
+            Group {
+                if isUpdating {
+                    VStack(spacing: 12) {
+                        ProgressView().tint(Theme.muted)
+                        Text("Updating \(entry.app.name)…")
+                            .font(Theme.body(14, relativeTo: .subheadline))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.surface)
+                } else {
+                    ContainerAppHost(hostApp: hostApp, launchInfo: bridge.launchInfo, onExit: close) { error in
+                        errorMessage = error.localizedDescription
+                    }
+                    .id(launch)
+                }
             }
-            .id(launch)
             .clipShape(UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22))
             .overlay {
                 AgentButtonLayer(appName: entry.app.name, placement: $buttonPlacement) {
@@ -95,16 +137,15 @@ struct RunningAppView: View {
         .background(Theme.background.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
         .statusBarHidden(false)
+        .onAppear(perform: connect)
         .onDisappear {
             chatModel.suspend()
             bridge.invalidate()
+            library.runningAppID = nil
+            library.onRunningAppEvent = nil
+            Task { await library.installUpdates() }
         }
         .onChange(of: buttonPlacement) { buttonPlacement.save(appID: entry.app.id) }
-        // The agent may have changed the app's data during the run. Until Hermes
-        // can call refresh itself (build step 6), Hermex refreshes when a run ends.
-        .onChange(of: chatModel.chat?.runEndTrigger) {
-            Task { await bridge.refresh() }
-        }
         .sheet(isPresented: $isShowingChat) {
             InAppChatSheet(model: chatModel, bridge: bridge, openFullChat: openFullChat) {
                 isShowingChat = false
@@ -120,6 +161,14 @@ struct RunningAppView: View {
                 .presentationDetents([.medium, .large])
         }
         #endif
+        .alert(Text("Couldn't update \(entry.app.name)"), isPresented: Binding(
+            get: { updateError != nil },
+            set: { if !$0 { updateError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(verbatim: updateError ?? "")
+        }
         .alert(Text("Couldn't open \(entry.app.name)"), isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil; close() } }
@@ -132,6 +181,51 @@ struct RunningAppView: View {
 }
 
 extension RunningAppView {
+    /// Marks this app as the open one and routes its data calls and Hermes'
+    /// changes. Calls reach only this app's own tools.
+    fileprivate func connect() {
+        let appID = entry.app.id
+        let service = service
+        let bridge = bridge
+        library.runningAppID = appID
+        library.onRunningAppEvent = { event in
+            Task {
+                await bridge.refresh(event.route)
+                if let ids = event.highlight, !ids.isEmpty {
+                    await bridge.highlight(ids)
+                }
+            }
+        }
+        bridge.apiHandler = { tool, arguments in
+            do {
+                let result = try await service.call(appID: appID, tool: tool, arguments: arguments)
+                return HermexAPIReply(result: result, error: nil, offline: false)
+            } catch let error as AppsServiceError {
+                return HermexAPIReply(result: nil, error: error.localizedDescription, offline: error.isOffline)
+            } catch let error as APIError {
+                if case .network = error {
+                    return HermexAPIReply(result: nil, error: error.localizedDescription, offline: true)
+                }
+                return HermexAPIReply(result: nil, error: error.localizedDescription, offline: false)
+            } catch {
+                return HermexAPIReply(result: nil, error: error.localizedDescription, offline: false)
+            }
+        }
+    }
+
+    /// Stops the app, installs the build Hermes just made, and reopens it.
+    fileprivate func applyUpdate() async {
+        isUpdating = true
+        // Removing the app's view terminates it; give the process a moment to go.
+        try? await Task.sleep(for: .milliseconds(500))
+        if !(await library.installWaitingUpdate(for: entry.app.id)) {
+            updateError = library.installFailure?.message
+            library.installFailure = nil
+        }
+        launch = UUID()
+        isUpdating = false
+    }
+
     /// Hands the in-app thread to the Chats tab and closes the app.
     fileprivate func openFullChat(_ sessionID: String) {
         chatModel.suspend()

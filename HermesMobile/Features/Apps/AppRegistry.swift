@@ -1,17 +1,72 @@
 import Foundation
 import LiveContainerSwiftUI
 
-/// Stand-in for the Mac-side app registry (BUILD_SPEC §3, build step 6), which
-/// will own each app's metadata, routes and version history. Until then the
-/// registry is hard-coded: Debug builds list the design's sample apps plus the
-/// container test app, and Release builds list only what is installed.
+/// Turns the Mac's app registry (BUILD_SPEC §3, served by `Mac/`) into the
+/// Apps tab's records. Debug builds can add the design's sample apps with the
+/// `--sample-apps` launch argument.
 enum AppRegistry {
-    static func records(now: Date = .now) -> [HermexApp] {
+    static func sampleRecords(now: Date = .now) -> [HermexApp] {
         #if DEBUG
-        return sampleRecords(now: now)
+        guard ProcessInfo.processInfo.arguments.contains("--sample-apps") else { return [] }
+        return designSamples(now: now)
         #else
         return []
         #endif
+    }
+
+    /// One app as the Mac describes it.
+    static func record(from remote: RemoteApp) -> HermexApp {
+        var capabilities: [HermexApp.Capability] = []
+        if let api = remote.api, api.tools > 0 {
+            capabilities.append(.init(
+                kind: .api,
+                title: String(localized: "Reads and writes your data"),
+                detail: String(localized: "MCP · \(remote.id) · \(api.tools) tools")
+            ))
+        }
+        if !remote.routes.isEmpty {
+            capabilities.append(.init(
+                kind: .link,
+                title: String(localized: "Opens any screen"),
+                detail: remote.routes.joined(separator: " · ")
+            ))
+        }
+        capabilities.append(tapCapability)
+        return HermexApp(
+            id: remote.id,
+            name: remote.name,
+            tagline: remote.tagline,
+            summary: remote.summary,
+            bundleIdentifier: remote.bundleId,
+            symbol: remote.symbol,
+            color: hex(remote.color) ?? 0x3A3F46,
+            ink: hex(remote.ink) ?? 0xF3F2ED,
+            version: remote.version,
+            builtAt: remote.builtAt ?? .distantPast,
+            updatedAt: remote.updatedAt ?? remote.builtAt ?? .distantPast,
+            origin: remote.origin,
+            capabilities: capabilities,
+            versions: remote.versions.map {
+                .init(
+                    number: $0.number,
+                    change: $0.change,
+                    reason: $0.reason ?? $0.at?.formatted(.dateTime.month(.abbreviated).day()) ?? ""
+                )
+            },
+            routes: remote.routes,
+            download: remote.ipa
+        )
+    }
+
+    private static var tapCapability: HermexApp.Capability {
+        .init(kind: .tap, title: String(localized: "Taps and types for you"), detail: String(localized: "Fallback only · asks first"))
+    }
+
+    /// `#RRGGBB` → 0xRRGGBB.
+    static func hex(_ string: String) -> UInt32? {
+        let digits = string.hasPrefix("#") ? String(string.dropFirst()) : string
+        guard digits.count == 6 else { return nil }
+        return UInt32(digits, radix: 16)
     }
 
     /// Plain metadata for an installed app the registry does not list.
@@ -29,15 +84,13 @@ enum AppRegistry {
             builtAt: .distantPast,
             updatedAt: .distantPast,
             origin: nil,
-            capabilities: [
-                .init(kind: .tap, title: String(localized: "Taps and types for you"), detail: String(localized: "Fallback only · asks first"))
-            ],
+            capabilities: [tapCapability],
             versions: []
         )
     }
 
     #if DEBUG
-    private static func sampleRecords(now: Date) -> [HermexApp] {
+    private static func designSamples(now: Date) -> [HermexApp] {
         let calendar = Calendar.current
         func daysAgo(_ days: Int) -> Date { calendar.date(byAdding: .day, value: -days, to: now) ?? now }
         let tap = HermexApp.Capability(kind: .tap, title: "Taps and types for you", detail: "Fallback only · asks first")

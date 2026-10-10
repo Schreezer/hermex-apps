@@ -37,9 +37,14 @@ how it is wired, what we changed in the vendored copy, and how to update it.
   under a thin Hermex bar) follow screens 05–07 of the design, with tokens in
   `HermexAppsTheme`. Fonts fall back to the system face until Space Grotesk and
   IBM Plex are bundled.
-- `AppLibrary` joins `AppRegistry` with the container's installs. The registry
-  is hard-coded until the Mac-side registry (build step 6): Debug builds list the
-  design's sample apps plus the container test app; Release lists installs only.
+- `AppLibrary` joins the Mac's registry (`AppsService`, see "Mac side" below)
+  with the container's installs. New apps install when the user taps Install
+  (or Open on a build card); updates install by themselves, except for the app
+  that is open, which shows "Restart to update". Installed apps the registry
+  doesn't know still show. Debug builds add the design's sample apps with the
+  `--sample-apps` launch argument.
+- `AppsView` shows a status card when the Mac can't be reached: Allow (the
+  webui's sidecar proxy consent), not set up, or service not running.
 - "Ask for a change" and "Ask Hermes for a new app" open a new chat with a draft
   through `NewChatRequest.initialDraft`.
 
@@ -71,10 +76,35 @@ how it is wired, what we changed in the vendored copy, and how to update it.
   the user's text, marked by `InAppChatContext.marker`, because the chat API
   has no hidden-context field. `MessageBubbleView` strips it for display, so
   neither the sheet nor the full chat shows it.
-- When a run ends Hermex refreshes the app over the bridge, until Hermes can
-  call refresh itself. "Full chat" hands the session to the Chats tab.
+- When Hermes changes the app's data through one of its tools, the Mac emits a
+  refresh event; `AppLibrary` polls the events feed while apps or build cards
+  are on screen and `RunningAppView` refreshes the app and highlights the ids.
+  "Full chat" hands the session to the Chats tab.
 - `InAppChatSessions` records which app each session started in, for Home's
   "in Lift Log" labels.
+
+## Mac side (build steps 6–7)
+
+- `Mac/` holds the factory, each app's data API, the `hermex-apps` MCP server
+  and the HTTP service; `Mac/README.md` has the setup. Hermes builds an app with
+  the `hermex-app-factory` skill: `apps_create` copies `Mac/template`, Hermes (or
+  a subagent it delegates to) writes `server.py` and the SwiftUI sources, and
+  `apps_build` runs xcodegen and xcodebuild and publishes the IPA.
+- `AppsService` reaches the service through the webui's extension sidecar proxy
+  (`APIClient.sendSidecar`). It sends `Sec-Fetch-Site: none` and no `Origin`:
+  the proxy demands provenance, and an `Origin` would make the webui treat
+  Hermex as a browser and require the page's CSRF token.
+- Guests call their own API with `HermexAppKit.fetch` / `perform`; the call
+  crosses the bridge (`HermexHostXPC.callAPI`) and `RunningAppView` forwards it
+  to that app's tools only.
+- `AppBuildCard` (screen 04) appears under the tool-call group holding Hermes'
+  newest `apps_create` / `apps_build` for an app, also when tool cards are
+  hidden or the turn is folded. Hermes may defer MCP tools behind a generic
+  `tool_call(name, arguments)` whose settled arguments are cut-short text, so
+  `AppBuildCall` reads both shapes. Steps come from the Mac's build events and
+  the registry; Open installs a new app and lands in it through
+  `AppLibrary.openRequest`. The hidden Apps tab stays alive, so `AppsView` only
+  takes the request once it is on screen.
 
 ## Build settings that matter
 

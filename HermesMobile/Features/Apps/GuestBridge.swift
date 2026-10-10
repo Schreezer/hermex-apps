@@ -5,13 +5,17 @@ import HermexAppKit
 /// Hermex's end of one running app's bridge (BUILD_SPEC §3.2). The guest's
 /// HermexAppKit connects to `endpoint`, which reaches it through the
 /// LiveProcess launch info, and reports its routes and current screen. Hermex
-/// calls back to open a route, refresh data, or highlight what changed.
+/// calls back to open a route, refresh data, or highlight what changed, and
+/// relays the app's calls to its own data API on the Mac.
 @MainActor
 @Observable
 final class GuestBridge {
     private(set) var registration: HermexRegistration?
     private(set) var context: HermexContext?
     private(set) var isConnected = false
+
+    /// Answers the app's `HermexAppKit.fetch`/`perform` calls: tool name, JSON arguments.
+    @ObservationIgnored var apiHandler: (@MainActor (String, Data) async -> HermexAPIReply)?
 
     @ObservationIgnored private let listener = NSXPCListener.anonymous()
     @ObservationIgnored private var connection: NSXPCConnection?
@@ -82,6 +86,13 @@ final class GuestBridge {
     fileprivate func receive(context data: Data) {
         context = try? HermexBridge.decoder.decode(HermexContext.self, from: data)
     }
+
+    fileprivate func answerAPI(_ tool: String, arguments: Data) async -> HermexAPIReply {
+        guard let apiHandler else {
+            return HermexAPIReply(result: nil, error: String(localized: "Hermex can't reach this app's data."), offline: true)
+        }
+        return await apiHandler(tool, arguments)
+    }
 }
 
 /// Accepts the guest's connection and receives its calls on the XPC queue.
@@ -121,5 +132,31 @@ private final class GuestBridgeHost: NSObject, NSXPCListenerDelegate, HermexHost
 
     func guestDidReportContext(_ context: Data) {
         onMain { $0.receive(context: context) }
+    }
+
+    func callAPI(_ tool: String, arguments: Data, reply: @escaping (Data) -> Void) {
+        let send = SendableReply(reply)
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                guard let bridge = self?.bridge else {
+                    send(HermexAPIReply(result: nil, error: String(localized: "The app was closed."), offline: true))
+                    return
+                }
+                Task { send(await bridge.answerAPI(tool, arguments: arguments)) }
+            }
+        }
+    }
+}
+
+/// Carries an XPC reply block across the hop to the main actor.
+private struct SendableReply: @unchecked Sendable {
+    let reply: (Data) -> Void
+
+    init(_ reply: @escaping (Data) -> Void) {
+        self.reply = reply
+    }
+
+    func callAsFunction(_ answer: HermexAPIReply) {
+        reply((try? HermexBridge.encoder.encode(answer)) ?? Data())
     }
 }

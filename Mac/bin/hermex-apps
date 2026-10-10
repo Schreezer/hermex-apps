@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Hermex Apps on the Mac.
+
+    hermex-apps serve [--port 8790]      HTTP service the webui proxies to the phone
+    hermex-apps mcp                      stdio MCP server for Hermes
+    hermex-apps list                     apps and their tools
+    hermex-apps build <id> --change "…"  build and publish the next version
+    hermex-apps call <id> <tool> [json]  run one of an app's data tools as Hermes would
+
+Apps live in $HERMEX_APPS_HOME (default ~/.hermes/hermex-apps).
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# Apps' server.py files load as modules; keep their folders free of __pycache__.
+sys.dont_write_bytecode = True
+
+from hermex_apps import appapi, factory, mcp, service, store  # noqa: E402
+from hermex_apps.store import AppsError  # noqa: E402
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="hermex-apps", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest="command", required=True)
+    serve = commands.add_parser("serve")
+    serve.add_argument("--port", type=int, default=8790)
+    commands.add_parser("mcp")
+    commands.add_parser("list")
+    build = commands.add_parser("build")
+    build.add_argument("app_id")
+    build.add_argument("--change", required=True)
+    build.add_argument("--reason")
+    call = commands.add_parser("call")
+    call.add_argument("app_id")
+    call.add_argument("tool")
+    call.add_argument("args", nargs="?", default="{}")
+    options = parser.parse_args()
+
+    try:
+        if options.command == "serve":
+            service.serve(options.port)
+        elif options.command == "mcp":
+            mcp.main()
+        elif options.command == "list":
+            print(json.dumps(mcp.Server()._list(), indent=2))
+        elif options.command == "build":
+            record = factory.build(options.app_id, options.change, options.reason,
+                                   progress=lambda step, state, detail: print(f"{step}: {state} {detail}".rstrip(), flush=True))
+            print(json.dumps({"version": record["version"], "ipa": record["ipa"]}, indent=2))
+        elif options.command == "call":
+            print(json.dumps(appapi.call(options.app_id, options.tool, json.loads(options.args), source="agent"), indent=2))
+    except AppsError as error:
+        print(error, file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

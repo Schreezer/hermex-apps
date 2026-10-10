@@ -512,6 +512,13 @@ struct ChatTranscriptView: View {
                 }
             }
 
+            // Build cards are product UI, not activity detail: they show even
+            // when thinking and tool cards are hidden.
+            if !liveToolCalls.isEmpty,
+               !hasDisplayedTranscriptMessage(anchorID: toolCallAnchorMessageID) {
+                AppBuildCards(toolCalls: liveToolCalls)
+            }
+
             if activeStreamRecoveryState != .idle {
                 StreamRecoveryStatusView(state: activeStreamRecoveryState)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -579,6 +586,9 @@ struct ChatTranscriptView: View {
             ForEach(completedToolCallGroupsForAnchor(anchorMessageID)) { group in
                 ToolActivityGroupView(group: group)
             }
+        }
+        ForEach(completedToolCallGroupsForAnchor(anchorMessageID)) { group in
+            AppBuildCards(toolCalls: group.toolCalls)
         }
     }
 }
@@ -701,6 +711,11 @@ private struct ChatTranscriptMessageBlock: View, Equatable {
                     .transition(foldTransition)
                 }
 
+                // A folded turn still shows its build card: it is the turn's result.
+                if hasBuildCalls {
+                    appBuildCards
+                }
+
                 if showsBubble {
                     messageRow
                         .transition(foldTransition)
@@ -731,7 +746,7 @@ private struct ChatTranscriptMessageBlock: View, Equatable {
     }
 
     private var hasVisibleContent: Bool {
-        foldState?.fold != nil || (showsActivity && rendersActivity) || showsBubble
+        foldState?.fold != nil || (showsActivity && rendersActivity) || hasBuildCalls || showsBubble
     }
 
     private var messageRow: some View {
@@ -810,6 +825,28 @@ private struct ChatTranscriptMessageBlock: View, Equatable {
                 isReplaying: isReplayingLiveToolCalls
             )
         }
+    }
+
+    /// Hermes Apps build cards for this row's factory calls. They show even
+    /// when thinking and tool cards are hidden or the turn is folded.
+    @ViewBuilder
+    private var appBuildCards: some View {
+        ForEach(toolCallGroups) { group in
+            AppBuildCards(toolCalls: group.toolCalls)
+        }
+        if hasLiveBuildCalls {
+            AppBuildCards(toolCalls: liveToolCalls)
+        }
+    }
+
+    private var hasLiveBuildCalls: Bool {
+        hasActiveStream
+            && toolCallAnchorMessageID == transcriptMessage.anchorID
+            && !AppBuildCall.calls(in: liveToolCalls).isEmpty
+    }
+
+    private var hasBuildCalls: Bool {
+        hasLiveBuildCalls || toolCallGroups.contains { !AppBuildCall.calls(in: $0.toolCalls).isEmpty }
     }
 
     private var shouldRenderLiveReasoningBlock: Bool {

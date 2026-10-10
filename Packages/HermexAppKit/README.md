@@ -23,9 +23,17 @@ HermexAppKit.reportContext(
 
 // On rows Hermes may change:
 LiftCard(lift).hermexHighlight(id: lift.id)
+
+// The app's data lives on the Mac, behind the tools in its server.py:
+let sessions: [Session] = try await HermexAppKit.fetch("sessions")      // cached for offline
+try await HermexAppKit.perform("log_session", LogSession(id: id, rpe: 7))
 ```
 
-`GuestApps/LiftLog` is a complete example.
+Arguments encode with snake_case keys and results decode from snake_case, so
+Swift types keep camelCase names. `fetch` returns the last good answer when the
+Mac can't be reached; `perform` never caches.
+
+`GuestApps/LiftLog` shows the bridge; `Mac/template` is what every new app starts from.
 
 ## How it connects
 
@@ -37,5 +45,5 @@ once, because XPC only connects on the first message and Hermex cannot reach the
 app before that.
 
 `Bridge.swift` is the whole contract: `HermexHostXPC` (app → Hermex: registration,
-context) and `HermexGuestXPC` (Hermex → app: open, refresh, highlight). Payloads
+context, API calls) and `HermexGuestXPC` (Hermex → app: open, refresh, highlight). Payloads
 are JSON `Data`. Hermex links this package too, so both sides always agree.
