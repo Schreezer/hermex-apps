@@ -119,7 +119,9 @@ Load hermex-app-factory and follow it. This skill adds:
   into the app's database, not into Swift or a seed.
   1. Give the app a bulk tool, such as `import_plan(weeks: list)` or
      `add_items(items: list)`.
-  2. Once the first build is ready, call it with all of the content.
+  2. Once the first build is ready, call it with all of the content. Call it
+     as the app's own tool (`<app>_import_plan`), never through a script,
+     the terminal or `hermex-apps call`: those wait for the user's approval.
   3. Read it back with a read tool to check that everything landed.
 - **Shape v1 around the questions they'll ask most:** "what do I do today?",
   "how am I doing?". The home screen shows today; history comes second.

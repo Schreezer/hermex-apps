@@ -96,7 +96,8 @@ Use the `hermex-apps` MCP tools: `apps_list`, `apps_create`, `apps_set_info`,
    card follows the build either way. Do step 7 yourself when it reports back.
 7. **Load the conversation in.** Once the build is ready, call the bulk tool
    with what you made together (the plan, the list), then read it back to check
-   it all landed.
+   it all landed. Call it as the app's own tool, never through a script, the
+   terminal or `hermex-apps call`: those wait for the user's approval.
 8. **Tell the user** in a sentence or two what the app does and the first thing
    to try. The build card in their chat has an **Open** button that installs
    and opens it; it is also in **Apps** (new apps need their OK to install;
