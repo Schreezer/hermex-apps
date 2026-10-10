@@ -1,6 +1,6 @@
 ---
 name: hermex-app-factory
-description: "Build or change a SwiftUI app for the user's iPhone (Hermex Apps): scaffold, write, build, publish."
+description: "Build or change a Hermex app: SwiftUI + data API"
 version: 1.0.0
 author: Hermex Apps
 license: MIT
@@ -8,6 +8,7 @@ platforms: [macos]
 metadata:
   hermes:
     tags: [iOS, SwiftUI, Hermex, App Factory, MCP]
+    related_skills: [hermex-apps]
 prerequisites:
   commands: [xcodebuild, xcodegen]
 ---
@@ -27,11 +28,12 @@ Use the `hermex-apps` MCP tools: `apps_list`, `apps_create`, `apps_set_info`,
 
 ## When to use
 
-- "Build me an app for …", "make a tracker for …" → new app.
+- "Build me an app for …", "make a tracker for …", or a yes to your offer of
+  one → new app.
 - "Add … to Lift Log", "change …" (including from the chat inside an app,
   whose first message names the app) → change an existing app.
-- Reading or changing an app's data ("log my breakfast") does **not** need this
-  skill: call the app's own tools.
+- Deciding whether an app would help, offering one, and reading or changing an
+  app's data ("log my breakfast") are the **hermex-apps** skill: load it too.
 
 ## Build a new app
 
@@ -62,7 +64,10 @@ Use the `hermex-apps` MCP tools: `apps_list`, `apps_create`, `apps_set_info`,
    - Mark tools that change data `@api.tool(changes=True, route="today")` and
      return the changed ids as `"highlight": [...]`.
    - Write tools for what the user will ask *you* to do ("log sets", "add a
-     meal"), not just what the screens need.
+     meal", "skip today", "undo"), not just what the screens need.
+   - Add a bulk tool for what you made in the conversation (`import_plan`,
+     `add_items`). Seed only examples or defaults in `@api.setup`; the user's
+     own plan goes in through that tool after the build (step 7).
    - Check it: call the new tools once they appear (a few seconds after you
      save), or `python3 <repo>/Mac/bin/hermex-apps call <id> <tool> '{...}'`.
 4. **Write the Swift sources** in `project/App/` (edit `App.swift`, `Store.swift`,
@@ -88,9 +93,13 @@ Use the `hermex-apps` MCP tools: `apps_list`, `apps_create`, `apps_set_info`,
    to a subagent with `delegate_task`: pass the app id, the folder, your plan
    (screens, tables, tools, routes, look) and "follow the hermex-app-factory
    skill; finish with apps_build and fix compiler errors until it builds". The
-   card follows the build either way.
-7. **Tell the user** in a sentence or two what the app does and that it is in
-   **Apps** on their phone, where they tap **Install** (new apps need their OK;
+   card follows the build either way. Do step 7 yourself when it reports back.
+7. **Load the conversation in.** Once the build is ready, call the bulk tool
+   with what you made together (the plan, the list), then read it back to check
+   it all landed.
+8. **Tell the user** in a sentence or two what the app does and the first thing
+   to try. The build card in their chat has an **Open** button that installs
+   and opens it; it is also in **Apps** (new apps need their OK to install;
    updates install by themselves).
 
 ## Change an app
@@ -101,7 +110,8 @@ Use the `hermex-apps` MCP tools: `apps_list`, `apps_create`, `apps_set_info`,
    `pragma table_info`, never drop tables with user data.
 3. If routes, name or look change, call `apps_set_info`.
 4. `apps_build` with a short `change` ("Rest timer between sets") and the
-   user's reason. Then tell the user what changed.
+   user's reason. Then tell the user what changed. If the app is open, it shows
+   **Restart to update**.
 
 ## Don'ts
 

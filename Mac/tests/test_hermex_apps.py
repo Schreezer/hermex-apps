@@ -241,5 +241,31 @@ class EventTests(AppsTestCase):
         self.assertLess(time.time() - time.mktime(time.strptime(events[0]["at"][:19], "%Y-%m-%dT%H:%M:%S")), 86400 * 2)
 
 
+class SkillsTests(unittest.TestCase):
+    """Hermes indexes skills by frontmatter and shows 60 characters of each description."""
+
+    SKILLS = Path(__file__).resolve().parent.parent / "skills"
+
+    def frontmatter(self, path):
+        text = path.read_text()
+        self.assertTrue(text.startswith("---\n"), path)
+        fields = {}
+        for line in text.split("---\n")[1].splitlines():
+            key, sep, value = line.partition(":")
+            if sep and not line.startswith(" "):
+                fields[key] = value.strip().strip('"')
+        return fields
+
+    def test_skills_are_indexable(self):
+        skills = sorted(self.SKILLS.rglob("SKILL.md"))
+        self.assertEqual([p.parent.name for p in skills], ["hermex-app-factory", "hermex-apps"])
+        for path in skills:
+            fields = self.frontmatter(path)
+            self.assertEqual(fields["name"], path.parent.name)
+            self.assertLessEqual(len(fields["description"]), 60, path)
+        category = self.frontmatter(self.SKILLS / "hermex-apps" / "DESCRIPTION.md")
+        self.assertIn("hermex-apps", category["description"])
+
+
 if __name__ == "__main__":
     unittest.main()

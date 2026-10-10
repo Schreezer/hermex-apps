@@ -10,7 +10,9 @@ Mac/
   hermex_apps/                 store (records, IPAs, events), appapi (per-app tools),
                                factory (scaffold, xcodebuild, package), mcp, service
   template/                    what every new app starts from: server.py + SwiftUI project
-  skills/hermex-app-factory/   the Hermes skill that drives a build
+  skills/hermex-apps/          the Hermes skills: hermex-apps (when to offer an app,
+                               using the user's apps, in-app chats) and
+                               hermex-app-factory (building and changing one)
   webui-extension/             the hermes-webui manifest that exposes the service
   tests/                       python3 -m unittest discover -s Mac/tests
 ```
@@ -50,8 +52,9 @@ Mac/
    HERMEX_APPS_HOME=~/.hermes/hermex-apps Mac/bin/hermex-apps serve
    ```
 
-3. Add the MCP server and the skill to the Hermes profile the webui uses
-   (`config.yaml`):
+3. Add the MCP server and the skills to the Hermes profile the webui uses
+   (`config.yaml`). Skills only load when Hermes decides they matter, so also
+   tell it about the apps in the system prompt:
 
    ```yaml
    mcp_servers:
@@ -65,6 +68,12 @@ Mac/
    skills:
      external_dirs:
        - /path/to/hermex-apps/Mac/skills
+   agent:
+     system_prompt: >-
+       You are Hermes, talking to the user through Hermex on their iPhone, which
+       runs apps you build and fill for them (Hermex Apps). Load the hermex-apps
+       skill whenever the user mentions something they track or will keep doing,
+       tells you something one of their apps tracks, or writes from inside an app.
    ```
 
 4. In Hermex, open **Apps** and tap **Allow**: that is the webui's one-time

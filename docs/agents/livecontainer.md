@@ -89,7 +89,12 @@ how it is wired, what we changed in the vendored copy, and how to update it.
   and the HTTP service; `Mac/README.md` has the setup. Hermes builds an app with
   the `hermex-app-factory` skill: `apps_create` copies `Mac/template`, Hermes (or
   a subagent it delegates to) writes `server.py` and the SwiftUI sources, and
-  `apps_build` runs xcodegen and xcodebuild and publishes the IPA.
+  `apps_build` runs xcodegen and xcodebuild and publishes the IPA. The
+  `hermex-apps` skill (same folder, `Mac/skills/hermex-apps/`) covers the rest:
+  when to offer an app, logging to and reading the user's apps, and chats
+  started inside an app. Hermes shows only the first 60 characters of a skill's
+  description when choosing skills, so keep those short; the folder's
+  `DESCRIPTION.md` carries the longer trigger.
 - `AppsService` reaches the service through the webui's extension sidecar proxy
   (`APIClient.sendSidecar`). It sends `Sec-Fetch-Site: none` and no `Origin`:
   the proxy demands provenance, and an `Origin` would make the webui treat

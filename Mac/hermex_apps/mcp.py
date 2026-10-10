@@ -21,9 +21,10 @@ from .store import AppsError
 PROTOCOL_VERSION = "2025-06-18"
 INSTRUCTIONS = (
     "Hermex Apps: SwiftUI apps you build on this Mac for the user's iPhone. "
-    "Follow the hermex-app-factory skill to build or change one. Each app's data "
-    "lives here; use its own tools (prefixed with the app id) to read or change it, "
-    "and the app open on the phone refreshes by itself."
+    "The hermex-apps skill says when to offer one and how to use the user's apps; "
+    "the hermex-app-factory skill builds or changes one. Each app's data lives "
+    "here; use its own tools (prefixed with the app id) to read or change it, and "
+    "the app open on the phone refreshes by itself."
 )
 
 _STRING_LIST = {"type": "array", "items": {"type": "string"}}
